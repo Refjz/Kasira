@@ -5,7 +5,9 @@
 const DAY = 86400000;
 const TRIAL_DAYS = 7;
 const SESSION_DAYS = 30;
-const PLANS = { pro: { name: "Pro", price: 99000, staff: 10 }, bisnis: { name: "Bisnis", price: 249000, staff: Infinity } };
+// Every plan has all features; plans differ only in billing period.
+const PLANS = { bulanan: { name: "Bulanan", price: 99000, days: 30 }, tahunan: { name: "Tahunan", price: 990000, days: 365 } };
+const planKey = k => PLANS[k] ? k : "bulanan";
 const STAFF_ROLES = ["manager", "cashier"];
 const TYPES = ["F&B", "Minimarket", "Retail", "Jasa"];
 
@@ -46,10 +48,10 @@ function tenantOut(t) {
   const now = Date.now(); const a = access(t, now);
   const until = a === "paid" ? t.paid_until : a === "trial" ? t.trial_ends : null;
   return {
-    id: t.id, name: t.name, type: t.type, city: t.city, tax: t.tax, plan: t.plan, status: t.status,
+    id: t.id, name: t.name, type: t.type, city: t.city, tax: t.tax, plan: planKey(t.plan), status: t.status,
     joined: t.created, trialEnds: t.trial_ends, paidUntil: t.paid_until, access: a,
     daysLeft: until ? Math.max(0, Math.ceil((until - now) / DAY)) : 0,
-    payRequest: t.pay_request ? JSON.parse(t.pay_request) : null
+    payRequest: t.pay_request ? (r => ({ ...r, plan: planKey(r.plan) }))(JSON.parse(t.pay_request)) : null
   };
 }
 const userOut = u => ({ id: u.id, name: u.name, email: u.email, role: u.role, tenantId: u.tenant_id });
@@ -123,7 +125,7 @@ on("POST", "signup", async ({ env, body }) => {
   if (await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) fail(409, "Email sudah terdaftar. Silakan masuk.");
   const now = Date.now(), tid = newId("t"), uid = newId("u"), salt = randHex(16);
   const stmts = [
-    env.DB.prepare("INSERT INTO tenants (id, name, type, city, tax, plan, status, trial_ends, paid_until, created) VALUES (?, ?, ?, ?, ?, 'pro', 'aktif', ?, 0, ?)")
+    env.DB.prepare("INSERT INTO tenants (id, name, type, city, tax, plan, status, trial_ends, paid_until, created) VALUES (?, ?, ?, ?, ?, 'bulanan', 'aktif', ?, 0, ?)")
       .bind(tid, business, type, city, type === "F&B" ? 10 : 0, now + TRIAL_DAYS * DAY, now),
     env.DB.prepare("INSERT INTO users (id, email, name, role, tenant_id, pass_hash, pass_salt, created) VALUES (?, ?, ?, 'owner', ?, ?, ?, ?)")
       .bind(uid, email, name, tid, await hashPassword(body.password, salt), salt, now),
@@ -219,9 +221,6 @@ on("POST", "staff", async ({ env, sess, body }) => {
   const email = normEmail(body.email); checkEmail(email); checkPassword(body.password);
   const role = STAFF_ROLES.includes(body.role) ? body.role : "cashier";
   const name = str(body.name); if (!name) fail(400, "Nama staf wajib diisi");
-  const n = (await env.DB.prepare("SELECT COUNT(*) AS n FROM users WHERE tenant_id = ? AND role != 'owner'").bind(t.id).first()).n;
-  const limit = (PLANS[t.plan] || PLANS.pro).staff;
-  if (n >= limit) fail(400, `Batas ${limit} staf di paket ${(PLANS[t.plan] || PLANS.pro).name}. Naikkan paket untuk menambah.`);
   if (await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) fail(409, "Email sudah dipakai akun lain");
   const uid = newId("u"), salt = randHex(16);
   await env.DB.prepare("INSERT INTO users (id, email, name, role, tenant_id, pass_hash, pass_salt, created) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
@@ -241,9 +240,19 @@ on("DELETE", "staff/:id", async ({ env, sess, params }) => {
 on("POST", "billing/request", async ({ env, sess, body }) => {
   const t = requireTenant(sess, { roles: ["owner"], allowInactive: true });
   if (!PLANS[body.plan]) fail(400, "Paket tidak dikenal");
-  const req = { plan: body.plan, months: 1, amount: PLANS[body.plan].price, at: Date.now() };
+  const req = { plan: body.plan, amount: PLANS[body.plan].price, at: Date.now() };
   await env.DB.prepare("UPDATE tenants SET pay_request = ? WHERE id = ?").bind(JSON.stringify(req), t.id).run();
   return json({ payRequest: req });
+});
+
+on("POST", "settings/reset", async ({ env, sess }) => {
+  const t = requireTenant(sess, { roles: ["owner"] });
+  if (access(t) !== "trial") fail(403, "Kosongkan data hanya tersedia selama masa coba");
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM transactions WHERE tenant_id = ?").bind(t.id),
+    env.DB.prepare("DELETE FROM products WHERE tenant_id = ?").bind(t.id)
+  ]);
+  return json({ ok: true });
 });
 
 on("GET", "admin/tenants", async ({ env, sess }) => {
@@ -268,10 +277,17 @@ on("POST", "admin/tenants/:id", async ({ env, sess, body, params }) => {
   if (body.action === "suspend" || body.action === "activate") {
     await env.DB.prepare("UPDATE tenants SET status = ? WHERE id = ?").bind(body.action === "suspend" ? "ditangguhkan" : "aktif", t.id).run();
   } else if (body.action === "extend") {
-    const plan = PLANS[body.plan] ? body.plan : t.plan;
-    const days = Math.min(Math.max(Math.floor(+body.days || 30), 1), 400);
+    // Activate or extend a paid subscription by N billing periods of the chosen plan.
+    const plan = planKey(body.plan);
+    const periods = Math.min(Math.max(Math.floor(+body.periods || 1), 1), 36);
     const from = Math.max(Date.now(), t.paid_until);
-    await env.DB.prepare("UPDATE tenants SET plan = ?, paid_until = ?, pay_request = NULL, status = 'aktif' WHERE id = ?").bind(plan, from + days * DAY, t.id).run();
+    await env.DB.prepare("UPDATE tenants SET plan = ?, paid_until = ?, pay_request = NULL, status = 'aktif' WHERE id = ?").bind(plan, from + periods * PLANS[plan].days * DAY, t.id).run();
+  } else if (body.action === "trial") {
+    // Extend the free trial by N days, counted from now if it already ended.
+    const days = Math.min(Math.max(Math.floor(+body.days || 7), 1), 365);
+    await env.DB.prepare("UPDATE tenants SET trial_ends = ?, status = 'aktif' WHERE id = ?").bind(Math.max(Date.now(), t.trial_ends) + days * DAY, t.id).run();
+  } else if (body.action === "endsub") {
+    await env.DB.prepare("UPDATE tenants SET paid_until = 0 WHERE id = ?").bind(t.id).run();
   } else fail(400, "Aksi tidak dikenal");
   return json({ tenant: tenantOut(await env.DB.prepare("SELECT * FROM tenants WHERE id = ?").bind(t.id).first()) });
 });

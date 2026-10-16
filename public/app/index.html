@@ -196,15 +196,16 @@ const isFnb = t => t && t.type==="F&B";
 const isRetail = t => t && (t.type==="Minimarket" || t.type==="Retail");
 const ORDER_TYPES = ["Makan di sini","Bawa pulang","Ojol"];
 const KITCHEN = {baru:"Baru",proses:"Diproses",siap:"Siap diambil"};
+// Every plan has all features and no limits; plans differ only in billing period.
 const PLANS = {
-  pro:{name:"Pro",price:99000,staff:10,products:Infinity,outlets:3,feat:["Sampai 3 outlet","Maks. 10 staf","Produk tak terbatas","Laporan lengkap & ekspor","Struk via WhatsApp"]},
-  bisnis:{name:"Bisnis",price:249000,staff:Infinity,products:Infinity,outlets:Infinity,feat:["Outlet tak terbatas","Staf tak terbatas","Stok antar-outlet","Akses API & integrasi","Prioritas dukungan"]}
+  bulanan:{name:"Bulanan",price:99000,per:"bulan",monthly:99000,staff:Infinity,products:Infinity,feat:["Semua fitur, tanpa batas","Outlet, staf, dan produk tak terbatas","Mode F&B dan minimarket","Laporan lengkap & ekspor","Struk via WhatsApp"]},
+  tahunan:{name:"Tahunan",price:990000,per:"tahun",monthly:82500,staff:Infinity,products:Infinity,note:"Hemat 2 bulan",feat:["Semua fitur, tanpa batas","Outlet, staf, dan produk tak terbatas","Mode F&B dan minimarket","Laporan lengkap & ekspor","Struk via WhatsApp"]}
 };
 const TRIAL_DAYS = 7;
 const ROLE = {superadmin:"Pemilik Aplikasi",owner:"Pemilik Usaha",manager:"Manajer",cashier:"Kasir"};
 const MENU = {
   superadmin:[["platform","Ringkasan Platform"],["tenants","Pelanggan"],["plans","Paket Langganan"]],
-  owner:[["dash","Dasbor"],["pos","Kasir"],["products","Produk & Stok"],["trx","Transaksi"],["staff","Staf"],["billing","Langganan"]],
+  owner:[["dash","Dasbor"],["pos","Kasir"],["products","Produk & Stok"],["trx","Transaksi"],["staff","Staf"],["billing","Langganan"],["settings","Pengaturan"]],
   manager:[["dash","Dasbor"],["pos","Kasir"],["products","Produk & Stok"],["trx","Transaksi"]],
   cashier:[["pos","Kasir"],["trx","Transaksi Saya"]]
 };
@@ -284,7 +285,7 @@ function render(){
   let body;
   if(t && t.access==="suspended") body = `<div class="blocked panel"><h2>Akun ${esc(t.name)} sedang ditangguhkan</h2><p class="muted">Pemilik aplikasi menangguhkan langganan usaha ini. Kasir dan laporan tidak bisa dipakai sampai akun diaktifkan kembali.</p><div><button class="btn" data-a="logout">Keluar</button></div></div>`;
   else if(t && !usable && u.role!=="owner") body = `<div class="blocked panel"><h2>Masa coba ${esc(t.name)} sudah habis</h2><p class="muted">Kasir terkunci sampai pemilik usaha membayar langganan. Hubungi pemilik usahamu.</p><div><button class="btn" data-a="logout">Keluar</button></div></div>`;
-  else body = ({platform:platformView,tenants:tenantsView,plans:plansView,dash:dashView,pos:posView,products:productsView,trx:trxView,kitchen:kitchenView,staff:staffView,billing:billingView})[ui.view](u,t);
+  else body = ({platform:platformView,tenants:tenantsView,plans:plansView,dash:dashView,pos:posView,products:productsView,trx:trxView,kitchen:kitchenView,staff:staffView,billing:billingView,settings:settingsView})[ui.view](u,t);
   let bar = "";
   if(t && t.access==="trial") bar = `<div class="trial-bar"><span><b>Masa coba gratis: sisa ${t.daysLeft} hari.</b> <span class="muted">Berakhir ${fmtDate(t.trialEnds)}. Setelah itu wajib berlangganan.</span></span>${u.role==="owner"&&ui.view!=="billing"?`<button class="btn sm primary" data-a="nav" data-v="billing">Pilih paket</button>`:""}</div>`;
   if(t && t.access==="expired" && u.role==="owner") bar = `<div class="trial-bar bad"><span><b>Masa coba sudah habis.</b> <span class="muted">Bayar langganan untuk membuka kembali kasir, produk, dan laporan. Data usahamu tetap tersimpan.</span></span></div>`;
@@ -316,7 +317,7 @@ function authView(){
         <button class="btn primary" type="submit">Masuk</button>
       </form>
       <p class="muted" style="font-size:.88rem">Belum punya akun? <button class="linkish" data-a="auth" data-v="signup">Daftar dan coba gratis ${TRIAL_DAYS} hari</button></p>`,
-    signup:`<div><h2>Coba gratis ${TRIAL_DAYS} hari</h2><p class="muted" style="font-size:.9rem">Semua fitur paket Pro selama ${TRIAL_DAYS} hari, tanpa kartu kredit. Setelah masa coba habis, pilih paket berbayar untuk lanjut memakai kasir.</p></div>
+    signup:`<div><h2>Coba gratis ${TRIAL_DAYS} hari</h2><p class="muted" style="font-size:.9rem">Semua fitur tanpa batas selama ${TRIAL_DAYS} hari, tanpa kartu kredit. Setelah masa coba habis, pilih paket berbayar untuk lanjut memakai kasir.</p></div>
       <form class="stack" data-form="signup">
         <div class="field"><label for="sn1">Nama kamu</label><input class="input" id="sn1" name="name" autocomplete="name" required></div>
         <div class="field"><label for="sb1">Nama usaha</label><input class="input" id="sb1" name="business" required placeholder="mis. Warung Makan Bu Tini"></div>
@@ -340,7 +341,7 @@ function authView(){
   return `<div class="login"><div class="login-card">
     <div class="login-hero">
       <div class="stack"><a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasira</a><h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk semua jenis usaha. Satu platform, banyak usaha, setiap usaha punya tim sendiri.</p></div>
-      <ul><li>Mode F&amp;B: varian menu, nomor meja, layar dapur</li><li>Mode minimarket: scan barcode, harga grosir, kedaluwarsa</li><li>Kasir cepat dengan QRIS, tunai, kartu</li><li>Stok berkurang otomatis tiap penjualan</li><li>Dasbor omzet, laba kotor, jam tersibuk</li><li>Gratis ${TRIAL_DAYS} hari, lalu mulai Rp99rb/bulan</li></ul>
+      <ul><li>Mode F&amp;B: varian menu, nomor meja, layar dapur</li><li>Mode minimarket: scan barcode, harga grosir, kedaluwarsa</li><li>Kasir cepat dengan QRIS, tunai, kartu</li><li>Stok berkurang otomatis tiap penjualan</li><li>Dasbor omzet, laba kotor, jam tersibuk</li><li>Gratis ${TRIAL_DAYS} hari, lalu Rp99rb/bulan atau Rp990rb/tahun</li></ul>
     </div>
     <div class="login-side">${tabs}${forms[m]||forms.login}</div>
   </div></div>`;
@@ -576,9 +577,29 @@ function billingView(u,t){
     : `Masa coba atau langganan sudah habis. Pilih paket dan bayar untuk membuka kembali kasir.`;
   const pr = t.payRequest;
   return `<div><h1>Langganan</h1><p class="muted">${status}</p></div>
-  ${pr?`<div class="panel stack" style="border-color:var(--gold)"><div class="spread"><h2>Menunggu pembayaran</h2><span class="pill gold">diproses</span></div><p>Paket <b>${PLANS[pr.plan].name}</b>, 1 bulan, <b class="num">${rp(pr.amount)}</b>. Diajukan ${fmtDate(pr.at)}.</p><p class="muted" style="font-size:.9rem">Tim Kasira akan mengirim instruksi pembayaran ke <b>${esc(u.email)}</b>. Langganan aktif begitu pembayaran dikonfirmasi.</p></div>`:""}
-  <div class="plans">${Object.entries(PLANS).map(([k,p])=>{ const cur=t.access==="paid"&&t.plan===k; return `<div class="panel plan${cur?" current":""}"><div class="spread"><h2>${p.name}</h2>${cur?'<span class="pill ok">aktif</span>':""}</div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /bulan</span></div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul><button class="btn ${k==="pro"?"primary":""}" data-a="payplan" data-v="${k}">${cur?"Perpanjang":"Bayar paket "+p.name}</button></div>`; }).join("")}</div>`;
+  ${pr?`<div class="panel stack" style="border-color:var(--gold)"><div class="spread"><h2>Menunggu pembayaran</h2><span class="pill gold">diproses</span></div><p>Paket <b>${PLANS[pr.plan].name}</b>, 1 ${PLANS[pr.plan].per}, <b class="num">${rp(pr.amount)}</b>. Diajukan ${fmtDate(pr.at)}.</p><p class="muted" style="font-size:.9rem">Tim Kasira akan mengirim instruksi pembayaran ke <b>${esc(u.email)}</b>. Langganan aktif begitu pembayaran dikonfirmasi.</p></div>`:""}
+  <div class="plans">${Object.entries(PLANS).map(([k,p])=>{ const cur=t.access==="paid"&&t.plan===k; return `<div class="panel plan${cur?" current":""}"><div class="spread"><h2>${p.name}</h2>${cur?'<span class="pill ok">aktif</span>':""}</div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /${p.per}</span>${p.note?` <span class="pill ok">${p.note}</span>`:""}</div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul><button class="btn ${k==="tahunan"?"primary":""}" data-a="payplan" data-v="${k}">${cur?"Perpanjang":"Bayar paket "+p.name}</button></div>`; }).join("")}</div>`;
 }
+
+/* ---------- tenant: settings ---------- */
+function settingsView(u,t){
+  const trial=t.access==="trial";
+  return `<div><h1>Pengaturan</h1><p class="muted">Data usaha dan pengelolaan akun.</p></div>
+  <div class="panel stack"><h2>Usaha</h2><div class="tbl-wrap"><table><tbody>
+    <tr><td class="muted">Nama usaha</td><td><b>${esc(t.name)}</b></td></tr>
+    <tr><td class="muted">Jenis</td><td>${esc(t.type)}</td></tr>
+    <tr><td class="muted">Kota</td><td>${esc(t.city)}</td></tr>
+    <tr><td class="muted">Pajak (PB1/PPN)</td><td class="num">${t.tax}%</td></tr>
+    <tr><td class="muted">Status</td><td>${trial?"Masa coba sampai "+fmtDate(t.trialEnds):t.access==="paid"?"Paket "+PLANS[t.plan].name+" sampai "+fmtDate(t.paidUntil):"Tidak aktif"}</td></tr>
+  </tbody></table></div></div>
+  <div class="panel stack" style="border-color:var(--bad)"><h2>Kosongkan data</h2>
+    <p class="muted" style="font-size:.92rem">Hapus semua produk dan transaksi supaya kamu bisa mulai dari nol setelah mencoba-coba. Akun usaha dan staf tetap ada. Tindakan ini tidak bisa dibatalkan.</p>
+    ${trial?`<div><button class="btn danger" data-a="resetask">Kosongkan data</button></div>`:`<p class="muted" style="font-size:.85rem">Hanya tersedia selama masa coba.</p>`}
+  </div>`;
+}
+function resetModal(){ return `<h2>Kosongkan semua data?</h2><p class="muted">${db.products.length} produk dan ${db.transactions.length} transaksi akan dihapus permanen. Ketik <b>KOSONGKAN</b> untuk melanjutkan.</p>
+  <form class="stack" data-form="reset"><input class="input" name="confirm" autocomplete="off" required placeholder="KOSONGKAN">
+  <div class="row"><button class="btn primary" type="submit">Kosongkan data</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`; }
 
 /* ---------- super admin ---------- */
 function accessPill(t){
@@ -589,14 +610,14 @@ function accessPill(t){
 }
 function platformView(){
   const paid=db.tenants.filter(t=>t.access==="paid"), trial=db.tenants.filter(t=>t.access==="trial");
-  const mrr=paid.reduce((s,t)=>s+PLANS[t.plan].price,0);
+  const mrr=paid.reduce((s,t)=>s+PLANS[t.plan].monthly,0);
   const gmv=db.transactions.reduce((s,x)=>s+x.total,0);
   const waiting=db.tenants.filter(t=>t.payRequest).length;
   const per=db.tenants.map(t=>({t,v:trxOf(t.id).reduce((s,x)=>s+x.total,0)})).sort((a,b)=>b.v-a.v).slice(0,8); const mx=per[0]?per[0].v||1:1;
   return `<div><div class="label">Konsol Pemilik Aplikasi</div><h1>Ringkasan Platform</h1></div>
   <div class="tiles">
     <div class="tile"><span class="label">Usaha terdaftar</span><span class="v">${db.tenants.length}</span><span class="d muted">${paid.length} berbayar · ${trial.length} masa coba</span></div>
-    <div class="tile"><span class="label">Pendapatan langganan / bulan</span><span class="v">${rp(mrr)}</span><span class="d muted">MRR dari usaha berbayar</span></div>
+    <div class="tile"><span class="label">Pendapatan langganan / bulan</span><span class="v">${rp(mrr)}</span><span class="d muted">MRR (tahunan dihitung per bulan)</span></div>
     <div class="tile"><span class="label">Nilai transaksi 7 hari</span><span class="v">${rp(gmv)}</span><span class="d muted">GMV semua usaha</span></div>
     <div class="tile"><span class="label">Menunggu pembayaran</span><span class="v">${waiting}</span><span class="d muted">${waiting?'<button class="linkish" data-a="nav" data-v="tenants">lihat pelanggan</button>':"tidak ada"}</span></div>
   </div>
@@ -606,23 +627,30 @@ function platformView(){
   </div>`;
 }
 function tenantsView(){
-  return `<div class="spread"><div><h1>Pelanggan</h1><p class="muted">Usaha mendaftar sendiri dan mendapat masa coba ${TRIAL_DAYS} hari. Aktifkan langganan setelah pembayaran diterima.</p></div><button class="btn" data-a="reload">Muat ulang</button></div>
+  return `<div class="spread"><div><h1>Pelanggan</h1><p class="muted">Usaha mendaftar sendiri dan mendapat masa coba ${TRIAL_DAYS} hari. Perpanjang masa coba atau aktifkan langganan bulanan/tahunan dari tombol "Atur akun".</p></div><button class="btn" data-a="reload">Muat ulang</button></div>
   <div class="panel tbl-wrap"><table><thead><tr><th>Usaha</th><th>Jenis</th><th>Status</th><th>Permintaan bayar</th><th class="r">Akun</th><th class="r">Transaksi 7 hari</th><th></th></tr></thead><tbody>
   ${db.tenants.map(t=>{const tr=trxOf(t.id); return `<tr><td><b>${esc(t.name)}</b><div class="muted" style="font-size:.8rem">${t.owner?esc(t.owner.name)+" · "+esc(t.owner.email):""}<br>${esc(t.city)} · daftar ${new Date(t.joined).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric"})}</div></td><td>${esc(t.type)}</td><td>${accessPill(t)}${t.access==="paid"?` <span class="pill">${PLANS[t.plan].name}</span>`:""}</td>
   <td>${t.payRequest?`<span class="pill gold">${PLANS[t.payRequest.plan].name} · ${rp(t.payRequest.amount)}</span>`:'<span class="muted">–</span>'}</td><td class="r num">${t.users}</td><td class="r num">${tr.length} · ${rp(tr.reduce((s,x)=>s+x.total,0))}</td>
-  <td class="r" style="white-space:nowrap"><button class="btn sm primary" data-a="extend" data-id="${t.id}">Aktifkan langganan</button> <button class="btn sm" data-a="impersonate" data-id="${t.id}">Masuk sebagai pemilik</button> <button class="btn sm ${t.status==="aktif"?"danger":""}" data-a="togglet" data-id="${t.id}">${t.status==="aktif"?"Tangguhkan":"Pulihkan"}</button></td></tr>`}).join("") || `<tr><td colspan="7" class="empty">Belum ada usaha yang mendaftar.</td></tr>`}
+  <td class="r" style="white-space:nowrap"><button class="btn sm primary" data-a="extend" data-id="${t.id}">Atur akun</button> <button class="btn sm" data-a="impersonate" data-id="${t.id}">Masuk sebagai pemilik</button> <button class="btn sm ${t.status==="aktif"?"danger":""}" data-a="togglet" data-id="${t.id}">${t.status==="aktif"?"Tangguhkan":"Pulihkan"}</button></td></tr>`}).join("") || `<tr><td colspan="7" class="empty">Belum ada usaha yang mendaftar.</td></tr>`}
   </tbody></table></div>`;
 }
-function extendModal(t){ const pr=t.payRequest; return ()=>`<h2>Aktifkan langganan ${esc(t.name)}</h2><p class="muted" style="font-size:.9rem">Pakai setelah pembayaran diterima. Masa aktif ditambahkan dari hari ini atau dari akhir langganan yang masih berjalan.</p>
-  <form class="stack" data-form="extend" data-id="${t.id}">
-    <div class="field"><label for="xp">Paket</label><select class="input" id="xp" name="plan">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${(pr?pr.plan:t.plan)===k?"selected":""}>${p.name} · ${rp(p.price)}/bln</option>`).join("")}</select></div>
-    <div class="field"><label for="xd">Tambah masa aktif (hari)</label><input class="input" id="xd" name="days" type="number" min="1" max="400" value="30" required></div>
-    <div class="row"><button class="btn primary" type="submit">Aktifkan</button><button class="btn" type="button" data-a="close">Batal</button></div>
+function extendModal(t){ const pr=t.payRequest; return ()=>`<div class="spread"><h2>Atur akun ${esc(t.name)}</h2><button class="btn sm" data-a="close">Tutup</button></div>
+  <p class="muted" style="font-size:.9rem">Status sekarang: ${accessPill(t)}${t.access==="trial"?" sampai "+fmtDate(t.trialEnds):t.access==="paid"?" sampai "+fmtDate(t.paidUntil):""}</p>
+  <form class="panel stack" data-form="trial" data-id="${t.id}"><h3>Perpanjang masa coba</h3>
+    <div class="field"><label for="xt">Tambah hari</label><input class="input" id="xt" name="days" type="number" min="1" max="365" value="7" required></div>
+    <span class="muted" style="font-size:.8rem">Dihitung dari akhir masa coba, atau dari hari ini kalau sudah habis.</span>
+    <div><button class="btn" type="submit">Perpanjang masa coba</button></div>
+  </form>
+  <form class="panel stack" data-form="extend" data-id="${t.id}"><h3>Jadikan pelanggan berbayar</h3>
+    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="xp">Paket</label><select class="input" id="xp" name="plan">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${(pr?pr.plan:t.plan)===k?"selected":""}>${p.name} · ${rp(p.price)}/${p.per}</option>`).join("")}</select></div>
+    <div class="field" style="width:110px"><label for="xn">Jumlah</label><input class="input" id="xn" name="periods" type="number" min="1" max="36" value="1" required></div></div>
+    <span class="muted" style="font-size:.8rem">Jumlah bulan atau tahun sesuai paket. Ditambahkan dari akhir langganan yang masih berjalan.</span>
+    <div class="row"><button class="btn primary" type="submit">Aktifkan langganan</button>${t.access==="paid"?`<button class="btn danger" type="button" data-a="endsub" data-id="${t.id}">Hentikan langganan</button>`:""}</div>
   </form>`; }
 function plansView(){
   const count=k=>db.tenants.filter(t=>t.access==="paid"&&t.plan===k).length;
-  return `<div><h1>Paket Langganan</h1><p class="muted">Usaha baru mendapat semua fitur Pro gratis selama ${TRIAL_DAYS} hari. Setelah itu wajib memilih paket berbayar. Saat ini ${db.tenants.filter(t=>t.access==="trial").length} usaha dalam masa coba.</p></div>
-  <div class="plans">${Object.entries(PLANS).map(([k,p])=>`<div class="panel plan"><div class="spread"><h2>${p.name}</h2><span class="pill">${count(k)} usaha</span></div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /bulan</span></div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul></div>`).join("")}</div>`;
+  return `<div><h1>Paket Langganan</h1><p class="muted">Semua paket berisi semua fitur tanpa batas. Usaha baru gratis selama ${TRIAL_DAYS} hari, setelah itu wajib berlangganan bulanan atau tahunan. Saat ini ${db.tenants.filter(t=>t.access==="trial").length} usaha dalam masa coba.</p></div>
+  <div class="plans">${Object.entries(PLANS).map(([k,p])=>`<div class="panel plan"><div class="spread"><h2>${p.name}</h2><span class="pill">${count(k)} usaha</span></div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /${p.per}</span>${p.note?` <span class="pill ok">${p.note}</span>`:""}</div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul></div>`).join("")}</div>`;
 }
 
 /* ---------- events ---------- */
@@ -674,6 +702,8 @@ root.addEventListener("click", async e=>{
     case "delstaff-ok": el.disabled=true; await api("DELETE","staff/"+encodeURIComponent(id)); db.users=db.users.filter(x=>x.id!==id); closeModal(); toast("Staf dihapus"); break;
     case "payplan": { el.disabled=true; const r=await api("POST","billing/request",{plan:v}); t.payRequest=r.payRequest; render(); toast("Permintaan pembayaran paket "+PLANS[v].name+" terkirim"); break; }
     case "extend": openModal(extendModal(db.tenants.find(x=>x.id===id))); break;
+    case "endsub": { el.disabled=true; const r=await api("POST","admin/tenants/"+encodeURIComponent(id),{action:"endsub"}); putTenant(r.tenant); closeModal(); toast("Langganan "+r.tenant.name+" dihentikan"); break; }
+    case "resetask": openModal(resetModal); break;
     case "togglet": { const x=db.tenants.find(x=>x.id===id); el.disabled=true; const r=await api("POST","admin/tenants/"+encodeURIComponent(id),{action:x.status==="aktif"?"suspend":"activate"}); putTenant(r.tenant); render(); toast(x.name+" "+(r.tenant.status==="aktif"?"dipulihkan":"ditangguhkan")); break; }
     case "impersonate": el.disabled=true; await api("POST","admin/impersonate",{tenantId:id}); ui.view=null; ui.cart=[]; await boot(); break;
     case "unimpersonate": await api("POST","admin/unimpersonate"); ui.view="tenants"; ui.cart=[]; await boot(); break;
@@ -709,7 +739,9 @@ root.addEventListener("submit", async e=>{
       if(i>=0) db.products[i]=r.product; else db.products.push(r.product);
       closeModal(); toast("Produk disimpan"); break; }
     case "staff": { const r=await api("POST","staff",{name:d.name,email:d.email,role:d.role,password:d.password}); db.users.push(r.user); closeModal(); toast(d.name+" ditambahkan sebagai "+ROLE[d.role]); break; }
-    case "extend": { const r=await api("POST","admin/tenants/"+encodeURIComponent(f.dataset.id),{action:"extend",plan:d.plan,days:+d.days}); putTenant(r.tenant); closeModal(); toast(r.tenant.name+" aktif sampai "+fmtDate(r.tenant.paidUntil)); break; }
+    case "extend": { const r=await api("POST","admin/tenants/"+encodeURIComponent(f.dataset.id),{action:"extend",plan:d.plan,periods:+d.periods}); putTenant(r.tenant); closeModal(); toast(r.tenant.name+" berlangganan sampai "+fmtDate(r.tenant.paidUntil)); break; }
+    case "trial": { const r=await api("POST","admin/tenants/"+encodeURIComponent(f.dataset.id),{action:"trial",days:+d.days}); putTenant(r.tenant); closeModal(); toast("Masa coba "+r.tenant.name+" sampai "+fmtDate(r.tenant.trialEnds)); break; }
+    case "reset": { if(d.confirm.trim().toUpperCase()!=="KOSONGKAN"){ toast("Ketik KOSONGKAN untuk konfirmasi"); break; } await api("POST","settings/reset"); db.products=[]; db.transactions=[]; ui.cart=[]; closeModal(); toast("Data usaha dikosongkan"); break; }
   } }catch(err){ toast(err.message); if(err.status===401 && session){ session=null; ui.modal=null; render(); } }
   finally{ if(btn && btn.isConnected) btn.disabled=false; }
 });

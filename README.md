@@ -1,4 +1,4 @@
-# Kasira POS
+﻿# Kasira POS
 
 Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket (barcode, harga grosir, kedaluwarsa) dan F&B (varian, meja, layar dapur).
 
@@ -11,9 +11,9 @@ Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pe
 
 ## Akun dan masa coba
 
-- Usaha mendaftar sendiri di `/app/#daftar` dan langsung mendapat semua fitur Pro selama **7 hari**.
-- Setelah 7 hari, kasir terkunci. Pemilik usaha hanya bisa membuka menu Langganan dan mengajukan pembayaran (Pro Rp99.000 atau Bisnis Rp249.000 per bulan). Staf melihat layar terkunci. Data tetap tersimpan.
-- Pemilik Aplikasi melihat permintaan pembayaran di menu Pelanggan, lalu menekan "Aktifkan langganan" setelah uang diterima.
+- Usaha mendaftar sendiri di `/app/#daftar` dan langsung mendapat semua fitur selama **7 hari**.
+- Setelah 7 hari, kasir terkunci. Pemilik usaha hanya bisa membuka menu Langganan dan mengajukan pembayaran (Bulanan Rp99.000 atau Tahunan Rp990.000). Semua paket berisi semua fitur tanpa batas; yang berbeda hanya periode tagihan. Staf melihat layar terkunci. Data tetap tersimpan.
+- Pemilik Aplikasi melihat permintaan pembayaran di menu Pelanggan, lalu lewat tombol "Atur akun" bisa memperpanjang masa coba atau langsung menjadikan usaha pelanggan bulanan/tahunan. Selama masa coba, pemilik usaha bisa mengosongkan data di menu Pengaturan.
 - Akun Pemilik Aplikasi diaktifkan sekali di `/app/#setup`. Hanya email yang tersimpan di secret `OWNER_EMAIL` yang bisa diaktifkan. Kata sandi tidak pernah disimpan di repo.
 
 ## Pengembangan lokal
@@ -50,3 +50,4 @@ gradlew bundleRelease assembleRelease
 ```
 
 Setiap unggahan ke Play Console butuh `VERSION_CODE` yang lebih besar dari sebelumnya.
+
