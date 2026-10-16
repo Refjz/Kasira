@@ -1,9 +1,11 @@
-﻿# Kasira POS
+# Kasira POS
 
-Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket (barcode, harga grosir, kedaluwarsa) dan F&B (varian, meja, layar dapur).
+Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket dan F&B, dan tetap bisa berjualan saat internet putus.
+
+Fitur utama: shift kasir dengan selisih kas, refund/batal dengan PIN manajer, struk Bluetooth/RawBT/WhatsApp, mode offline, total dihitung ulang di server, laporan lengkap dengan ekspor Excel, lupa/ganti kata sandi, barang masuk dari supplier, stok opname, riwayat stok, scan barcode kamera HP, satuan bertingkat (pcs/pak/dus), open bill, split bill, denah meja, resep bahan baku, QRIS otomatis (Midtrans), member dan poin, promo dan voucher, multi-outlet dengan transfer stok.
 
 - `public/index.html`: landing page. Tombol "Coba gratis" mengarah ke pendaftaran (`/app/#daftar`).
-- `public/app/index.html`: aplikasi kasir satu file, tanpa build. Data disimpan di server lewat API.
+- `public/app/`: aplikasi kasir (ES modules, tanpa build). `core.js` state/API/offline, `pricing.js` perhitungan harga yang dipakai bersama oleh browser dan server, `pos.js` kasir/meja/dapur, `manage.js` produk/stok/member/promo/staf/outlet/pengaturan, `reports.js` laporan/transaksi/shift, `app.js` menu/login/akun/langganan/konsol. `sw.js` menyimpan aplikasi untuk dipakai offline. `vendor/` berisi SheetJS (Excel), ZXing (barcode), dan qrcode-generator.
 - `functions/api/[[path]].js`: API (Cloudflare Pages Functions): daftar, masuk, sesi, produk, transaksi, staf, langganan, konsol pemilik aplikasi.
 - `schema.sql`: tabel database Cloudflare D1 (`kasira-db`).
 - `android/`, `capacitor.config.json`: aplikasi Android (Capacitor) yang memuat `https://kasira-c70.pages.dev/app/`.
@@ -34,6 +36,16 @@ powershell -ExecutionPolicy Bypass -File deploy.ps1 -OwnerEmail <email-pemilik>
 ```
 
 Skrip ini menyiapkan tabel D1, menyimpan `OWNER_EMAIL` sebagai secret, lalu mengunggah `public/` dan `functions/`. `-OwnerEmail` cukup diberikan sekali.
+
+Secret opsional (atur dengan `npx wrangler pages secret put NAMA --project-name kasira`):
+
+| Secret | Untuk |
+| --- | --- |
+| `RESEND_API_KEY`, `MAIL_FROM` | Email lupa kata sandi lewat Resend. Tanpa ini, Pemilik Aplikasi bisa membuat tautan ganti kata sandi dari menu Pelanggan. |
+| `MIDTRANS_SERVER_KEY` | Pembayaran langganan otomatis lewat Midtrans Snap. Tanpa ini, permintaan bayar dikonfirmasi manual. |
+| `MIDTRANS_PRODUCTION` | Isi `true` untuk mode produksi Midtrans. |
+
+QRIS otomatis untuk pelanggan toko memakai Server Key Midtrans milik masing-masing usaha (diisi pemilik usaha di Pengaturan). Atur Payment Notification URL di dashboard Midtrans ke `https://<domain>/api/midtrans/notify`.
 
 ## Build Android
 
