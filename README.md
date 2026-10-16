@@ -15,7 +15,7 @@ Fitur utama: shift kasir dengan selisih kas, refund/batal dengan PIN manajer, st
 
 - Usaha mendaftar sendiri di `/app/#daftar` dan langsung mendapat semua fitur selama **7 hari**.
 - Setelah 7 hari, kasir terkunci. Pemilik usaha hanya bisa membuka menu Langganan dan mengajukan pembayaran (Bulanan Rp99.000 atau Tahunan Rp990.000). Semua paket berisi semua fitur tanpa batas; yang berbeda hanya periode tagihan. Staf melihat layar terkunci. Data tetap tersimpan.
-- Pemilik Aplikasi melihat permintaan pembayaran di menu Pelanggan, lalu lewat tombol "Atur akun" bisa memperpanjang masa coba atau langsung menjadikan usaha pelanggan bulanan/tahunan. Selama masa coba, pemilik usaha bisa mengosongkan data di menu Pengaturan.
+- Pemilik Aplikasi melihat permintaan pembayaran di menu Pelanggan, lalu lewat tombol "Atur akun" bisa memperpanjang masa coba atau langsung menjadikan usaha pelanggan bulanan/tahunan. Pemilik usaha (masa coba maupun berlangganan) bisa mengosongkan data di menu Pengaturan dengan memasukkan kata sandinya.
 - Akun Pemilik Aplikasi diaktifkan sekali di `/app/#setup`. Hanya email yang tersimpan di secret `OWNER_EMAIL` yang bisa diaktifkan. Kata sandi tidak pernah disimpan di repo.
 
 ## Pengembangan lokal

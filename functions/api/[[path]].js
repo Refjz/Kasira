@@ -1007,9 +1007,10 @@ on("PUT", "settings", async ({ env, sess, body }) => {
   return json({ settings: settingsOut(s), tenant: tenantOut(await env.DB.prepare("SELECT * FROM tenants WHERE id = ?").bind(t.id).first()) });
 });
 
-on("POST", "settings/reset", async ({ env, sess }) => {
-  const t = requireTenant(sess, { roles: ["owner"] });
-  if (access(t) !== "trial") fail(403, "Kosongkan data hanya tersedia selama masa coba");
+// Wipe all business data (any plan). Needs the owner's password; accounts, outlets and settings stay.
+on("POST", "settings/reset", async ({ env, sess, body }) => {
+  const t = requireTenant(sess, { roles: ["owner"], allowInactive: true });
+  if (!safeEqual(await hashPassword(String(body.password || ""), sess.real.pass_salt), sess.real.pass_hash)) fail(403, "Kata sandi salah");
   await env.DB.batch(["transactions", "products", "stock", "moves", "stock_docs", "shifts", "bills", "kitchen", "customers", "promos", "suppliers"]
     .map(tb => env.DB.prepare(`DELETE FROM ${tb} WHERE tenant_id = ?`).bind(t.id)));
   return json({ ok: true });

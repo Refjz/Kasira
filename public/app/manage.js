@@ -385,7 +385,7 @@ forms.outlet = async (d, f) => { const id = f.dataset.id || uid("o"); const r = 
 
 /* ---------- settings ---------- */
 views.settings = (u, t) => {
-  const s = S.settings, trial = t.access === "trial", loy = s.loyalty || {}, mt = s.midtrans || {};
+  const s = S.settings, loy = s.loyalty || {}, mt = s.midtrans || {};
   const tablesText = (s.tables || []).map(x => x.name + (x.area && x.area !== "Dalam" ? ", " + x.area : "")).join("\n");
   return `<div><h1>Pengaturan</h1><p class="muted">Data usaha, struk, pajak, meja, poin member, dan pembayaran QRIS.</p></div>
   <form class="panel stack" data-form="setbiz"><h2>Usaha & struk</h2>
@@ -408,7 +408,7 @@ views.settings = (u, t) => {
     <div class="row"><button class="btn primary" type="submit">Simpan</button>${mt.configured ? `<button class="btn danger" type="button" data-a="mtclear">Putuskan</button>` : ""}</div></form>
   <div class="panel stack" style="border-color:var(--bad)"><h2>Kosongkan data</h2>
     <p class="muted" style="font-size:.92rem">Hapus semua produk, stok, transaksi, member, promo, dan shift supaya kamu bisa mulai dari nol setelah mencoba-coba. Akun usaha, outlet, dan staf tetap ada. Tindakan ini tidak bisa dibatalkan.</p>
-    ${trial ? `<div><button class="btn danger" data-a="resetask">Kosongkan data</button></div>` : `<p class="muted" style="font-size:.85rem">Hanya tersedia selama masa coba.</p>`}</div>`;
+    <div><button class="btn danger" data-a="resetask">Kosongkan data</button></div></div>`;
 };
 async function saveSettings(settings, msg) {
   const r = await api("PUT", "settings", { settings, ...(settings.tax !== undefined ? { } : {}) });
@@ -428,7 +428,8 @@ forms.settables = d => {
 forms.setloy = d => saveSettings({ loyalty: { enabled: !!d.enabled, earnPer: +d.earnPer, pointValue: +d.pointValue } });
 forms.setmt = d => saveSettings({ midtrans: { ...(d.serverKey ? { serverKey: d.serverKey.trim() } : {}), production: !!d.production } }, "Pengaturan Midtrans disimpan");
 actions.mtclear = () => saveSettings({ midtrans: { serverKey: "", clientKey: "" } }, "Midtrans diputus");
-actions.resetask = () => openModal(`<h2>Kosongkan semua data?</h2><p class="muted">${S.data.products.length} produk, ${S.data.transactions.length} transaksi, dan ${S.data.customers.length} member akan dihapus permanen. Ketik <b>KOSONGKAN</b> untuk melanjutkan.</p>
-  <form class="stack" data-form="reset"><input class="input" name="confirm" autocomplete="off" required placeholder="KOSONGKAN"><div class="row"><button class="btn danger" type="submit">Kosongkan data</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`);
-forms.reset = async d => { if (d.confirm.trim().toUpperCase() !== "KOSONGKAN") { toast("Ketik KOSONGKAN untuk konfirmasi"); return; } await api("POST", "settings/reset"); S.ui.modal = null; await boot({ quiet: true }); toast("Data usaha dikosongkan"); };
+actions.resetask = () => openModal(`<h2>Kosongkan semua data?</h2><p class="muted">${S.data.products.length} produk, ${S.data.transactions.length} transaksi, dan ${S.data.customers.length} member akan dihapus permanen. Akun usaha, outlet, staf, pengaturan, dan langganan tetap ada.</p>
+  <form class="stack" data-form="reset"><div class="field"><label for="rsc">Ketik KOSONGKAN</label><input class="input" id="rsc" name="confirm" autocomplete="off" required placeholder="KOSONGKAN"></div>
+  <div class="field"><label for="rsp">Kata sandi kamu</label><input class="input" id="rsp" name="password" type="password" autocomplete="current-password" required></div><div class="row"><button class="btn danger" type="submit">Kosongkan data</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`);
+forms.reset = async d => { if (d.confirm.trim().toUpperCase() !== "KOSONGKAN") { toast("Ketik KOSONGKAN untuk konfirmasi"); return; } await api("POST", "settings/reset", { password: d.password }); S.ui.modal = null; await boot({ quiet: true }); toast("Data usaha dikosongkan"); };
 void isRetail;
