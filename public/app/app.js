@@ -1,5 +1,5 @@
 // App shell: menu per role, outlet switcher, offline banner, sign-in flows, account, billing and the app owner console.
-import { S, views, actions, forms, changes, api, toast, render, openModal, closeModal, setShell, boot, loadData, setOutlet, esc, rp, initials, fmtDate, daysTo,
+import { S, views, actions, forms, changes, api, toast, render, openModal, closeModal, setShell, boot, loadData, setOutlet, applyPlans, esc, rp, initials, fmtDate, daysTo,
   isFnb, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey } from "./core.js";
 import { resetPos } from "./pos.js";
 import { barChart } from "./manage.js";
@@ -116,7 +116,7 @@ function authView() {
   return `<div class="login"><div class="login-card">
     <div class="login-hero">
       <div class="stack"><a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasira</a><h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
-      <ul><li>Meja, open bill, split bill, layar dapur, resep bahan baku</li><li>Scan barcode pakai kamera HP, satuan pcs/pak/dus, harga grosir</li><li>QRIS otomatis, struk Bluetooth & WhatsApp</li><li>Shift kasir, refund dengan PIN manajer</li><li>Member, poin, promo, voucher, multi-outlet</li><li>Laporan lengkap & ekspor Excel</li><li>Gratis ${TRIAL_DAYS} hari, lalu Rp99rb/bulan atau Rp990rb/tahun</li></ul>
+      <ul><li>Meja, open bill, split bill, layar dapur, resep bahan baku</li><li>Scan barcode pakai kamera HP, satuan pcs/pak/dus, harga grosir</li><li>QRIS otomatis, struk Bluetooth & WhatsApp</li><li>Shift kasir, refund dengan PIN manajer</li><li>Member, poin, promo, voucher, multi-outlet</li><li>Laporan lengkap & ekspor Excel</li><li>Gratis ${TRIAL_DAYS} hari, lalu ${rp(PLANS.bulanan.price)}/bulan atau ${rp(PLANS.tahunan.price)}/tahun</li></ul>
     </div>
     <div class="login-side">${tabs}${F[m] || F.login}</div>
   </div></div>`;
@@ -241,12 +241,20 @@ forms.trial = async (d, f) => { const r = await api("POST", "admin/tenants/" + e
 views.plans = () => {
   const count = k => S.admin.tenants.filter(t => t.access === "paid" && t.plan === k).length;
   return `<div><h1>Paket Langganan</h1><p class="muted">Semua paket berisi semua fitur tanpa batas. Usaha baru gratis selama ${TRIAL_DAYS} hari, setelah itu wajib berlangganan bulanan atau tahunan. Saat ini ${S.admin.tenants.filter(t => t.access === "trial").length} usaha dalam masa coba.</p></div>
-  <div class="plans">${Object.entries(PLANS).map(([k, p]) => `<div class="panel plan"><div class="spread"><h2>${p.name}</h2><span class="pill">${count(k)} usaha</span></div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /${p.per}</span>${p.note ? ` <span class="pill ok">${p.note}</span>` : ""}</div><ul>${p.feat.map(f => `<li>${f}</li>`).join("")}</ul></div>`).join("")}</div>`;
+  <div class="plans">${Object.entries(PLANS).map(([k, p]) => `<div class="panel plan"><div class="spread"><h2>${p.name}</h2><span class="pill">${count(k)} usaha</span></div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /${p.per}</span>${p.note ? ` <span class="pill ok">${p.note}</span>` : ""}</div><ul>${p.feat.map(f => `<li>${f}</li>`).join("")}</ul></div>`).join("")}</div>
+  <form class="panel stack" data-form="plans"><h2>Atur harga</h2><p class="muted" style="font-size:.9rem">Harga baru langsung berlaku untuk tagihan berikutnya, halaman Langganan pemilik usaha, dan halaman depan. Langganan yang sudah berjalan tidak berubah.</p>
+    <div class="row" style="flex-wrap:nowrap">${Object.entries(PLANS).map(([k, p]) => `<div class="field" style="flex:1"><label for="pl_${k}">Harga ${p.name} (Rp per ${p.per})</label><input class="input num" id="pl_${k}" name="${k}" type="number" min="1000" step="1000" required value="${p.price}"></div>`).join("")}</div>
+    <div><button class="btn primary" type="submit">Simpan harga</button></div></form>`;
+};
+forms.plans = async d => {
+  const r = await api("PUT", "admin/plans", { plans: Object.fromEntries(Object.keys(PLANS).map(k => [k, { price: +d[k] }])) });
+  applyPlans(r.plans); render(); toast("Harga paket disimpan");
 };
 
 /* ---------- start ---------- */
 window.addEventListener("hashchange", () => { if (!S.session) { readHash(); render(); } });
 if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+api("GET", "plans").then(r => { applyPlans(r.plans); if (!S.session) render(); }).catch(() => {});
 if (auth.mode === "reset") { S.booting = false; render(); } else await boot();
 { const f = views[S.ui.view]; if (S.session && f && f.load && !S.offline) f.load().catch(e => toast(e.message)); }
 void [lsGet, lsSet, daysTo, closeModal];

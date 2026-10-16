@@ -11,6 +11,12 @@ const SESSION_DAYS = 30;
 // Every plan has all features; plans differ only in billing period.
 const PLANS = { bulanan: { name: "Bulanan", price: 99000, days: 30 }, tahunan: { name: "Tahunan", price: 990000, days: 365 } };
 const planKey = k => PLANS[k] ? k : "bulanan";
+// Prices are set by the app owner in the console; defaults apply until then.
+async function getPlans(env) {
+  const r = await env.DB.prepare("SELECT data FROM platform WHERE key = 'plans'").first().catch(() => null);
+  const saved = r ? parse(r.data) : {};
+  return Object.fromEntries(Object.entries(PLANS).map(([k, p]) => [k, { ...p, price: saved[k] && +saved[k].price > 0 ? Math.round(+saved[k].price) : p.price }]));
+}
 const STAFF_ROLES = ["manager", "cashier"];
 const MANAGERS = ["owner", "manager"];
 const TYPES = ["F&B", "Minimarket", "Retail", "Jasa"];
@@ -354,10 +360,24 @@ on("POST", "pin", async ({ env, sess, body }) => {
 });
 
 /* ---------- session & bulk data ---------- */
+on("GET", "plans", async ({ env }) => json({ plans: await getPlans(env) }));
+
+on("PUT", "admin/plans", async ({ env, sess, body }) => {
+  requireSuper(sess);
+  const cur = await getPlans(env), next = {};
+  for (const k of Object.keys(PLANS)) {
+    const v = body.plans && body.plans[k] ? Math.round(+body.plans[k].price) : cur[k].price;
+    if (!(v >= 1000 && v <= 100000000)) fail(400, "Harga paket " + PLANS[k].name + " tidak valid");
+    next[k] = { price: v };
+  }
+  await env.DB.prepare("INSERT INTO platform (key, data) VALUES ('plans', ?) ON CONFLICT (key) DO UPDATE SET data = excluded.data").bind(JSON.stringify(next)).run();
+  return json({ plans: await getPlans(env) });
+});
+
 on("GET", "me", async ({ env, sess }) => {
   if (!sess) fail(401, "Belum masuk");
   const meta = await getMeta(env, sess.user.id);
-  const out = { user: userOut(sess.user, meta), impersonating: sess.impersonating, tenant: null, staff: [], outlets: [], settings: null };
+  const out = { user: userOut(sess.user, meta), impersonating: sess.impersonating, tenant: null, staff: [], outlets: [], settings: null, plans: await getPlans(env) };
   if (sess.tenant) {
     await ensureMain(env, sess.tenant);
     out.tenant = tenantOut(sess.tenant);
@@ -1059,21 +1079,22 @@ on("GET", "qris/:id", async ({ env, sess, params }) => {
 on("POST", "billing/request", async ({ env, sess, body }) => {
   const t = requireTenant(sess, { roles: ["owner"], allowInactive: true });
   if (!PLANS[body.plan]) fail(400, "Paket tidak dikenal");
+  const P = await getPlans(env);
   if (env.MIDTRANS_SERVER_KEY) {
     // Online checkout (Snap): QRIS, e-wallet, VA, card. Subscription extends automatically when paid.
     const prod = env.MIDTRANS_PRODUCTION === "true";
     const id = "SUB-" + t.id.slice(1, 9) + "-" + Date.now().toString(36);
     const owner = sess.user;
     const r = await fetch(snapBase(prod) + "/snap/v1/transactions", { method: "POST", headers: { accept: "application/json", "content-type": "application/json", authorization: mtAuth(env.MIDTRANS_SERVER_KEY) },
-      body: JSON.stringify({ transaction_details: { order_id: id, gross_amount: PLANS[body.plan].price }, item_details: [{ id: body.plan, price: PLANS[body.plan].price, quantity: 1, name: "Kasira " + PLANS[body.plan].name }], customer_details: { first_name: owner.name, email: owner.email } }) });
+      body: JSON.stringify({ transaction_details: { order_id: id, gross_amount: P[body.plan].price }, item_details: [{ id: body.plan, price: P[body.plan].price, quantity: 1, name: "Kasira " + P[body.plan].name }], customer_details: { first_name: owner.name, email: owner.email } }) });
     const d = await r.json().catch(() => ({}));
     if (!d.redirect_url) fail(502, "Gagal membuat tagihan: " + (d.error_messages || [r.status]).join(", "));
-    await env.DB.prepare("INSERT INTO payments (id, tenant_id, kind, amount, status, created, data) VALUES (?, ?, 'sub', ?, 'pending', ?, ?)").bind(id, t.id, PLANS[body.plan].price, Date.now(), JSON.stringify({ plan: body.plan, redirect: d.redirect_url })).run();
-    const req = { plan: body.plan, amount: PLANS[body.plan].price, at: Date.now(), orderId: id, redirect: d.redirect_url };
+    await env.DB.prepare("INSERT INTO payments (id, tenant_id, kind, amount, status, created, data) VALUES (?, ?, 'sub', ?, 'pending', ?, ?)").bind(id, t.id, P[body.plan].price, Date.now(), JSON.stringify({ plan: body.plan, redirect: d.redirect_url })).run();
+    const req = { plan: body.plan, amount: P[body.plan].price, at: Date.now(), orderId: id, redirect: d.redirect_url };
     await env.DB.prepare("UPDATE tenants SET pay_request = ? WHERE id = ?").bind(JSON.stringify(req), t.id).run();
     return json({ payRequest: req, redirect: d.redirect_url });
   }
-  const req = { plan: body.plan, amount: PLANS[body.plan].price, at: Date.now() };
+  const req = { plan: body.plan, amount: P[body.plan].price, at: Date.now() };
   await env.DB.prepare("UPDATE tenants SET pay_request = ? WHERE id = ?").bind(JSON.stringify(req), t.id).run();
   return json({ payRequest: req });
 });

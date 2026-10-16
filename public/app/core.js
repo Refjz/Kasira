@@ -12,6 +12,13 @@ export const PLANS = {
   tahunan: { name: "Tahunan", price: 990000, per: "tahun", monthly: 82500, note: "Hemat 2 bulan", feat: ["Semua fitur, tanpa batas", "Outlet, staf, dan produk tak terbatas", "Mode F&B dan minimarket", "Laporan lengkap & ekspor Excel", "Mode offline dan cetak struk"] }
 };
 
+// Prices come from the server (set by the app owner); the values above are fallbacks.
+export function applyPlans(plans) {
+  for (const [k, v] of Object.entries(plans || {})) if (PLANS[k] && +v.price > 0) { PLANS[k].price = +v.price; PLANS[k].monthly = k === "tahunan" ? Math.round(v.price / 12) : +v.price; }
+  const y = PLANS.tahunan, m = PLANS.bulanan, saved = m.price * 12 - y.price;
+  y.note = saved >= m.price ? "Hemat " + Math.floor(saved / m.price) + " bulan" : saved > 0 ? "Lebih hemat" : "";
+}
+
 export const S = {
   booting: true, offline: false, session: null, tenant: null, staff: [], outlets: [], settings: null, outlet: "main",
   data: { products: [], stock: {}, transactions: [], bills: [], kitchen: [], customers: [], promos: [], suppliers: [], shift: null },
@@ -129,6 +136,7 @@ export async function boot(opts = {}) {
   try {
     const m = await api("GET", "me");
     S.session = { user: m.user, impersonating: m.impersonating };
+    applyPlans(m.plans);
     S.tenant = m.tenant; S.staff = m.staff || []; S.outlets = m.outlets || []; S.settings = m.settings;
     const saved = lsGet("kasira-outlet-" + m.user.id, null);
     S.outlet = m.user.role === "cashier" && m.user.outletId ? m.user.outletId : (saved && S.outlets.some(o => o.id === saved) ? saved : "main");

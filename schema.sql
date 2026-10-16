@@ -183,3 +183,9 @@ CREATE TABLE IF NOT EXISTS payments (
   data TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS payments_tenant ON payments(tenant_id, created);
+
+-- Platform-wide settings owned by the app owner (plan prices).
+CREATE TABLE IF NOT EXISTS platform (
+  key TEXT PRIMARY KEY,
+  data TEXT NOT NULL
+);

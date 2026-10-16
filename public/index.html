@@ -287,8 +287,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
     <div class="wrap">
       <div class="sec-head"><div class="eyebrow">Harga</div><h2>Coba gratis 7 hari, lalu pilih paket.</h2><p class="muted">Semua paket berisi semua fitur tanpa batas outlet, staf, atau produk. Yang dibatasi hanya waktu: gratis 7 hari, lalu berlangganan bulanan atau tahunan. Harga belum termasuk biaya transaksi QRIS dari penyedia pembayaran.</p></div>
       <div class="plans">
-        <div class="plan"><div class="top"><h3>Bulanan</h3></div><div class="price">Rp99rb <small>/bulan</small></div><ul><li>Semua fitur, tanpa batas</li><li>Outlet, staf, dan produk tak terbatas</li><li>Mode F&amp;B dan minimarket</li><li>Laporan lengkap &amp; ekspor</li><li>Mode offline, struk Bluetooth & WhatsApp</li></ul><a class="btn" href="./app/#daftar">Coba gratis 7 hari</a></div>
-        <div class="plan hot"><div class="top"><h3>Tahunan</h3><span class="tag ok">Hemat 2 bulan</span></div><div class="price">Rp990rb <small>/tahun</small></div><ul><li>Semua fitur, tanpa batas</li><li>Outlet, staf, dan produk tak terbatas</li><li>Mode F&amp;B dan minimarket</li><li>Laporan lengkap &amp; ekspor</li><li>Mode offline, struk Bluetooth & WhatsApp</li></ul><a class="btn primary" href="./app/#daftar">Coba gratis 7 hari</a></div>
+        <div class="plan"><div class="top"><h3>Bulanan</h3></div><div class="price" data-plan="bulanan">Rp99rb <small>/bulan</small></div><ul><li>Semua fitur, tanpa batas</li><li>Outlet, staf, dan produk tak terbatas</li><li>Mode F&amp;B dan minimarket</li><li>Laporan lengkap &amp; ekspor</li><li>Mode offline, struk Bluetooth & WhatsApp</li></ul><a class="btn" href="./app/#daftar">Coba gratis 7 hari</a></div>
+        <div class="plan hot"><div class="top"><h3>Tahunan</h3><span class="tag ok" data-plan-note>Hemat 2 bulan</span></div><div class="price" data-plan="tahunan">Rp990rb <small>/tahun</small></div><ul><li>Semua fitur, tanpa batas</li><li>Outlet, staf, dan produk tak terbatas</li><li>Mode F&amp;B dan minimarket</li><li>Laporan lengkap &amp; ekspor</li><li>Mode offline, struk Bluetooth & WhatsApp</li></ul><a class="btn primary" href="./app/#daftar">Coba gratis 7 hari</a></div>
       </div>
     </div>
   </section>
@@ -330,4 +330,13 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 })();
 </script>
 
+<script>
+// Prices are set by the app owner; refresh them from the server.
+fetch("/api/plans").then(r => r.json()).then(({ plans }) => {
+  const short = v => v % 1000 === 0 ? "Rp" + (v / 1000).toLocaleString("id-ID") + "rb" : "Rp" + v.toLocaleString("id-ID");
+  for (const el of document.querySelectorAll("[data-plan]")) { const p = plans[el.dataset.plan]; if (p) el.firstChild.textContent = short(p.price) + " "; }
+  const saved = plans.bulanan.price * 12 - plans.tahunan.price, note = document.querySelector("[data-plan-note]");
+  if (note) { if (saved >= plans.bulanan.price) note.textContent = "Hemat " + Math.floor(saved / plans.bulanan.price) + " bulan"; else note.remove(); }
+}).catch(() => {});
+</script>
 </html>
