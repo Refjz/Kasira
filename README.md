@@ -1,15 +1,52 @@
 # Kasira POS
 
-Prototipe aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket (barcode, harga grosir, kedaluwarsa) dan F&B (varian, meja, layar dapur).
+Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket (barcode, harga grosir, kedaluwarsa) dan F&B (varian, meja, layar dapur).
 
-- `index.html`: landing page Kasira.
-- `app/index.html`: prototipe aplikasi kasir satu file, tanpa build. Data contoh disimpan di browser (localStorage).
+- `public/index.html`: landing page. Tombol "Coba gratis" mengarah ke pendaftaran (`/app/#daftar`).
+- `public/app/index.html`: aplikasi kasir satu file, tanpa build. Data disimpan di server lewat API.
+- `functions/api/[[path]].js`: API (Cloudflare Pages Functions): daftar, masuk, sesi, produk, transaksi, staf, langganan, konsol pemilik aplikasi.
+- `schema.sql`: tabel database Cloudflare D1 (`kasira-db`).
+- `android/`, `capacitor.config.json`: aplikasi Android (Capacitor) yang memuat `https://kasira-c70.pages.dev/app/`.
 - `docs/rencana-produk.md`: rencana produk, peran, stack, dan tahapan.
+
+## Akun dan masa coba
+
+- Usaha mendaftar sendiri di `/app/#daftar` dan langsung mendapat semua fitur Pro selama **7 hari**.
+- Setelah 7 hari, kasir terkunci. Pemilik usaha hanya bisa membuka menu Langganan dan mengajukan pembayaran (Pro Rp99.000 atau Bisnis Rp249.000 per bulan). Staf melihat layar terkunci. Data tetap tersimpan.
+- Pemilik Aplikasi melihat permintaan pembayaran di menu Pelanggan, lalu menekan "Aktifkan langganan" setelah uang diterima.
+- Akun Pemilik Aplikasi diaktifkan sekali di `/app/#setup`. Hanya email yang tersimpan di secret `OWNER_EMAIL` yang bisa diaktifkan. Kata sandi tidak pernah disimpan di repo.
+
+## Pengembangan lokal
+
+```
+npm install
+npx wrangler d1 execute kasira-db --local --file schema.sql
+echo OWNER_EMAIL=owner@kasira.test > .dev.vars
+npm run dev
+```
+
+Buka http://127.0.0.1:8788.
 
 ## Deploy ke Cloudflare Pages
 
-Situs statis, tanpa langkah build:
+```
+powershell -ExecutionPolicy Bypass -File deploy.ps1 -OwnerEmail <email-pemilik>
+```
 
-- Framework preset: None
-- Build command: (kosong)
-- Build output directory: `/`
+Skrip ini menyiapkan tabel D1, menyimpan `OWNER_EMAIL` sebagai secret, lalu mengunggah `public/` dan `functions/`. `-OwnerEmail` cukup diberikan sekali.
+
+## Build Android
+
+Butuh JDK 21 dan Android SDK (API 36). Upload key disimpan di luar repo (Google Drive, `Aplikasi POS (Kasira)\Kasira-keys`).
+
+```
+npx cap sync android
+cd android
+set UPLOAD_KEYSTORE_PATH=...\upload-keystore.jks
+set UPLOAD_KEYSTORE_PASSWORD=...
+set UPLOAD_KEY_PASSWORD=...
+set VERSION_CODE=2
+gradlew bundleRelease assembleRelease
+```
+
+Setiap unggahan ke Play Console butuh `VERSION_CODE` yang lebih besar dari sebelumnya.

@@ -1,0 +1,8 @@
+name = "kasira"
+pages_build_output_dir = "public"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "kasira-db"
+database_id = "b8129ba1-d5ad-40fb-9ea3-ed64f5e1139e"

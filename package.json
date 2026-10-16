@@ -1,0 +1,21 @@
+{
+  "name": "kasira",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kasira POS: situs statis + Pages Functions, dan pembungkus Android (Capacitor)",
+  "scripts": {
+    "dev": "wrangler pages dev --port 8788",
+    "db:init": "wrangler d1 execute kasira-db --remote --file schema.sql",
+    "deploy": "wrangler pages deploy --project-name kasira --branch main --commit-dirty=true",
+    "android:sync": "cap sync android"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.6.9",
+    "@capacitor/core": "^7.6.9"
+  },
+  "devDependencies": {
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^7.6.9",
+    "wrangler": "^4.151.0"
+  }
+}

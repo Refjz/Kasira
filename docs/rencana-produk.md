@@ -31,7 +31,7 @@ Hak akses per peran disimpan sebagai tabel permission, bukan hardcode, supaya pe
 3. **Wawasan otomatis**: jam tersibuk, produk lambat laku, saran restock, ringkasan harian dikirim ke WhatsApp pemilik
 4. **Self-order QR meja**: pelanggan pesan dan bayar QRIS dari HP, pesanan masuk ke kasir dan layar dapur
 5. **Loyalty & member**: poin, voucher, database pelanggan dari nomor WA
-6. **Paket Gratis selamanya** untuk usaha mikro, sebagai pintu masuk
+6. **Coba gratis 7 hari** dengan semua fitur Pro, lalu wajib berlangganan
 7. **Multi-outlet & transfer stok** di paket Bisnis
 8. **Integrasi**: GoFood/GrabFood/ShopeeFood (stok sinkron), akuntansi (Jurnal/Accurate), API terbuka
 
@@ -63,7 +63,7 @@ Tabel utama: `tenants`, `plans`, `subscriptions`, `users`, `memberships (user_id
 
 | Paket | Harga/bulan | Batas |
 |---|---|---|
-| Gratis | Rp0 | 1 outlet, 2 staf, 50 produk |
+| Coba gratis | Rp0 selama 7 hari | Semua fitur Pro; setelah 7 hari kasir terkunci sampai membayar |
 | Pro | Rp99.000 | 3 outlet, 10 staf, produk tak terbatas, struk WA, ekspor laporan |
 | Bisnis | Rp249.000 | Outlet & staf tak terbatas, transfer stok, API, peran kustom |
 

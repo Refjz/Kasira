@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}</style>
 <title>Kasira POS</title>
-<meta name="description" content="Aplikasi kasir online untuk warung, kafe, resto, dan minimarket. QRIS, stok otomatis, struk WhatsApp, laporan omzet. Mulai gratis.">
+<meta name="description" content="Aplikasi kasir online untuk warung, kafe, resto, dan minimarket. QRIS, stok otomatis, struk WhatsApp, laporan omzet. Coba gratis 7 hari.">
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap">
@@ -140,7 +140,7 @@ section{padding-block:clamp(3.5rem,8vw,6rem)}
 @media (max-width:560px){.feats{grid-template-columns:1fr}.feat{border-right:0!important;border-bottom:1px solid var(--line)!important}.feat:last-child{border-bottom:0!important}}
 
 /* pricing */
-.plans{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1rem;align-items:stretch}
+.plans{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1rem;align-items:stretch;max-width:780px;margin-inline:auto}
 .plan{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:1.6rem;display:grid;gap:1rem;align-content:start}
 .plan.hot{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent),0 24px 50px -30px rgba(12,122,98,.6)}
 .plan .top{display:flex;justify-content:space-between;align-items:center;gap:.5rem}
@@ -173,8 +173,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 <header class="nav">
   <div class="wrap">
     <a class="logo" href="#top"><i aria-hidden="true"></i>Kasira</a>
-    <nav aria-label="Navigasi utama"><a href="#mode">Fitur</a><a href="#peran">Tim</a><a href="#harga">Harga</a><a href="#faq">FAQ</a></nav>
-    <a class="btn primary" href="./app/">Coba demo</a>
+    <nav aria-label="Navigasi utama"><a href="#mode">Fitur</a><a href="#peran">Tim</a><a href="#harga">Harga</a><a href="#faq">FAQ</a><a href="./app/">Masuk</a></nav>
+    <a class="btn primary" href="./app/#daftar">Coba gratis</a>
   </div>
 </header>
 
@@ -185,8 +185,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
         <div class="eyebrow">Aplikasi kasir untuk warung, kafe, resto &amp; minimarket</div>
         <h1 style="margin-top:1rem">Jualan lancar, stok aman, <em>laporan jelas.</em></h1>
         <p class="lede muted">Kasira menyatukan kasir, stok, dan laporan omzet dalam satu aplikasi di browser. Terima QRIS, kirim struk lewat WhatsApp, dan pantau usaha dari HP di mana saja.</p>
-        <div class="ctas"><a class="btn primary" href="./app/">Coba demo gratis</a><a class="btn" href="#harga">Lihat harga</a></div>
-        <div class="trust muted"><span>Paket gratis selamanya</span><span>Tanpa kartu kredit</span><span>HP, tablet, laptop</span></div>
+        <div class="ctas"><a class="btn primary" href="./app/#daftar">Coba gratis 7 hari</a><a class="btn" href="#harga">Lihat harga</a></div>
+        <div class="trust muted"><span>Gratis 7 hari</span><span>Tanpa kartu kredit</span><span>HP, tablet, laptop</span></div>
       </div>
       <div class="stage" aria-label="Contoh struk dari Kasira">
         <div class="receipt" role="img" aria-label="Struk Kopi Senja total Rp66.880 dibayar QRIS">
@@ -285,11 +285,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 
   <section id="harga" style="background:var(--surface);border-block:1px solid var(--line)">
     <div class="wrap">
-      <div class="sec-head"><div class="eyebrow">Harga</div><h2>Mulai gratis, naik paket saat usaha tumbuh.</h2><p class="muted">Bayar bulanan, bisa berhenti kapan saja. Harga belum termasuk biaya transaksi QRIS dari penyedia pembayaran.</p></div>
+      <div class="sec-head"><div class="eyebrow">Harga</div><h2>Coba gratis 7 hari, lalu pilih paket.</h2><p class="muted">Semua fitur Pro terbuka selama masa coba, tanpa kartu kredit. Setelah 7 hari, pilih paket berbayar untuk lanjut. Bayar bulanan, bisa berhenti kapan saja. Harga belum termasuk biaya transaksi QRIS dari penyedia pembayaran.</p></div>
       <div class="plans">
-        <div class="plan"><div class="top"><h3>Gratis</h3></div><div class="price">Rp0 <small>/bulan</small></div><ul><li>1 outlet</li><li>2 staf</li><li>50 produk</li><li>Laporan harian</li></ul><a class="btn" href="./app/">Mulai gratis</a></div>
-        <div class="plan hot"><div class="top"><h3>Pro</h3><span class="tag ok">Paling dipilih</span></div><div class="price">Rp99rb <small>/bulan</small></div><ul><li>Sampai 3 outlet</li><li>10 staf</li><li>Produk tak terbatas</li><li>Laporan lengkap &amp; ekspor</li><li>Struk via WhatsApp</li></ul><a class="btn primary" href="./app/">Coba Pro</a></div>
-        <div class="plan"><div class="top"><h3>Bisnis</h3></div><div class="price">Rp249rb <small>/bulan</small></div><ul><li>Outlet &amp; staf tak terbatas</li><li>Transfer stok antar outlet</li><li>Akses API &amp; integrasi</li><li>Dukungan prioritas</li></ul><a class="btn" href="./app/">Hubungi kami</a></div>
+        <div class="plan hot"><div class="top"><h3>Pro</h3><span class="tag ok">Paling dipilih</span></div><div class="price">Rp99rb <small>/bulan</small></div><ul><li>Sampai 3 outlet</li><li>10 staf</li><li>Produk tak terbatas</li><li>Laporan lengkap &amp; ekspor</li><li>Struk via WhatsApp</li></ul><a class="btn primary" href="./app/#daftar">Coba gratis 7 hari</a></div>
+        <div class="plan"><div class="top"><h3>Bisnis</h3></div><div class="price">Rp249rb <small>/bulan</small></div><ul><li>Outlet &amp; staf tak terbatas</li><li>Transfer stok antar outlet</li><li>Akses API &amp; integrasi</li><li>Dukungan prioritas</li></ul><a class="btn" href="./app/#daftar">Coba gratis 7 hari</a></div>
       </div>
     </div>
   </section>
@@ -301,16 +300,16 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
         <details><summary>Perlu beli mesin kasir khusus?</summary><p>Tidak. Kasira jalan di browser HP, tablet, atau laptop yang sudah kamu punya. Printer struk Bluetooth 58 mm dan scanner barcode USB bisa ditambahkan kalau perlu.</p></details>
         <details><summary>Apakah data usaha saya terpisah dari usaha lain?</summary><p>Ya. Setiap usaha punya ruang data sendiri. Staf hanya bisa melihat data usaha tempat mereka terdaftar.</p></details>
         <details><summary>Bisa dipakai untuk lebih dari satu cabang?</summary><p>Bisa. Paket Pro mendukung sampai 3 outlet dan paket Bisnis tanpa batas, termasuk transfer stok antar cabang.</p></details>
-        <details><summary>Bagaimana cara mencoba?</summary><p>Klik "Coba demo", lalu pilih akun contoh: pemilik, manajer, atau kasir. Semua data di demo adalah contoh dan tersimpan di browsermu saja.</p></details>
-        <details><summary>Kalau berhenti langganan, data saya bagaimana?</summary><p>Akun turun ke paket Gratis dan data tetap tersimpan. Kamu juga bisa mengekspor laporan sebelum berhenti.</p></details>
+        <details><summary>Bagaimana cara mencoba?</summary><p>Klik "Coba gratis 7 hari" dan daftarkan usahamu dengan email dan kata sandi. Semua fitur Pro langsung terbuka selama 7 hari. Setelah masa coba habis, kasir terkunci sampai kamu memilih paket dan membayar. Data yang sudah kamu masukkan tetap tersimpan.</p></details>
+        <details><summary>Kalau berhenti langganan, data saya bagaimana?</summary><p>Kasir terkunci, tapi data usahamu tetap tersimpan. Begitu langganan dibayar lagi, semuanya kembali seperti semula.</p></details>
       </div>
     </div>
   </section>
 
   <section class="band">
     <div class="wrap">
-      <div><h2>Buka kasirmu hari ini.</h2><p>Coba semua fitur dengan data contoh, tanpa daftar.</p></div>
-      <a class="btn primary" href="./app/">Coba demo gratis</a>
+      <div><h2>Buka kasirmu hari ini.</h2><p>Coba semua fitur gratis 7 hari, tanpa kartu kredit.</p></div>
+      <a class="btn primary" href="./app/#daftar">Coba gratis 7 hari</a>
     </div>
   </section>
 </main>

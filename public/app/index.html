@@ -51,7 +51,7 @@ button{cursor:pointer}
 .input{width:100%;border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:.55rem .7rem}
 .field{display:grid;gap:.3rem}
 .field label{font-size:.85rem;font-weight:600}
-.pill{display:inline-block;padding:.12rem .55rem;border-radius:99px;font-size:.75rem;font-weight:700;background:var(--surface-2);color:var(--muted)}
+.pill{display:inline-block;white-space:nowrap;padding:.12rem .55rem;border-radius:99px;font-size:.75rem;font-weight:700;background:var(--surface-2);color:var(--muted)}
 .pill.ok{background:var(--accent-soft);color:var(--ok)}
 .pill.bad{background:var(--bad-soft);color:var(--bad)}
 .pill.gold{background:var(--gold-soft);color:var(--gold)}
@@ -181,6 +181,10 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
 .empty{grid-column:1/-1;padding:2rem;text-align:center;color:var(--muted)}
 .blocked{max-width:520px;margin:3rem auto;text-align:center;display:grid;gap:.8rem}
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+.trial-bar{display:flex;justify-content:space-between;align-items:center;gap:.6rem;flex-wrap:wrap;background:var(--gold-soft);border:1px solid var(--gold);border-radius:var(--r);padding:.65rem .9rem;font-size:.92rem}
+.trial-bar.bad{background:var(--bad-soft);border-color:var(--bad)}
+.login-side form .btn.primary{padding:.7rem}
+.login-hero a{text-decoration:none}
 </style>
 
 <div id="root"></div>
@@ -188,16 +192,15 @@ tr.click{cursor:pointer} tr.click:hover td{background:var(--surface-2)}
 <script>
 (function(){
 "use strict";
-const KEY = "kasira-demo-v2";
 const isFnb = t => t && t.type==="F&B";
 const isRetail = t => t && (t.type==="Minimarket" || t.type==="Retail");
 const ORDER_TYPES = ["Makan di sini","Bawa pulang","Ojol"];
 const KITCHEN = {baru:"Baru",proses:"Diproses",siap:"Siap diambil"};
 const PLANS = {
-  gratis:{name:"Gratis",price:0,staff:2,products:50,outlets:1,feat:["1 outlet","Maks. 2 staf","Maks. 50 produk","Laporan harian"]},
   pro:{name:"Pro",price:99000,staff:10,products:Infinity,outlets:3,feat:["Sampai 3 outlet","Maks. 10 staf","Produk tak terbatas","Laporan lengkap & ekspor","Struk via WhatsApp"]},
   bisnis:{name:"Bisnis",price:249000,staff:Infinity,products:Infinity,outlets:Infinity,feat:["Outlet tak terbatas","Staf tak terbatas","Stok antar-outlet","Akses API & integrasi","Prioritas dukungan"]}
 };
+const TRIAL_DAYS = 7;
 const ROLE = {superadmin:"Pemilik Aplikasi",owner:"Pemilik Usaha",manager:"Manajer",cashier:"Kasir"};
 const MENU = {
   superadmin:[["platform","Ringkasan Platform"],["tenants","Pelanggan"],["plans","Paket Langganan"]],
@@ -222,71 +225,6 @@ const HUES = ["#0C7A62","#C98A0C","#7A4FB5","#C2372F","#2F6FB7","#5E8C1E","#B550
 function swatch(name){ let h=0; for(const c of name) h=(h*31+c.charCodeAt(0))>>>0; return HUES[h%HUES.length]; }
 
 function rng(seed){ return function(){ seed|=0; seed=seed+0x6D2B79F5|0; let t=Math.imul(seed^seed>>>15,1|seed); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
-
-function seed(){
-  const r = rng(42);
-  const now = Date.now();
-  const tenants = [
-    {id:"t1",name:"Kopi Senja",type:"F&B",plan:"pro",status:"aktif",tax:10,joined:now-86400000*120,city:"Bandung"},
-    {id:"t2",name:"Toko Berkah Jaya",type:"Minimarket",plan:"bisnis",status:"aktif",tax:0,joined:now-86400000*300,city:"Surabaya"},
-    {id:"t3",name:"Bakso Pak Kumis",type:"F&B",plan:"gratis",status:"aktif",tax:10,joined:now-86400000*20,city:"Solo"},
-    {id:"t4",name:"Laundry Wangi",type:"Jasa",plan:"pro",status:"ditangguhkan",tax:0,joined:now-86400000*200,city:"Depok"}
-  ];
-  const users = [
-    {id:"u0",name:"Rian Hadi",email:"admin@kasira.id",role:"superadmin",tenantId:null},
-    {id:"u1",name:"Sinta Maharani",email:"sinta@kopisenja.id",role:"owner",tenantId:"t1"},
-    {id:"u2",name:"Dimas Pratama",email:"dimas@kopisenja.id",role:"manager",tenantId:"t1"},
-    {id:"u3",name:"Ayu Lestari",email:"ayu@kopisenja.id",role:"cashier",tenantId:"t1"},
-    {id:"u4",name:"Bayu Saputra",email:"bayu@kopisenja.id",role:"cashier",tenantId:"t1"},
-    {id:"u5",name:"Hendra Wijaya",email:"hendra@berkahjaya.id",role:"owner",tenantId:"t2"},
-    {id:"u6",name:"Rina Kartika",email:"rina@berkahjaya.id",role:"cashier",tenantId:"t2"},
-    {id:"u7",name:"Pak Kumis",email:"kumis@baksopk.id",role:"owner",tenantId:"t3"},
-    {id:"u8",name:"Wulan Sari",email:"wulan@laundrywangi.id",role:"owner",tenantId:"t4"}
-  ];
-  const P = (t,name,cat,price,cost,stock,extra)=>({id:uid("p"),tenantId:t,name,cat,price,cost,stock,...(extra||{})});
-  const DRINK = [{name:"Gula",opts:["Normal","Less","Tanpa"]},{name:"Es",opts:["Normal","Sedikit","Panas"]}];
-  const HOT = [{name:"Gula",opts:["Normal","Less","Tanpa"]}];
-  const SPICY = [{name:"Pedas",opts:["Tidak","Sedang","Pedas"]},{name:"Telur",opts:["Dadar","Ceplok"]}];
-  const exp = d => now + d*DAY;
-  const products = [
-    P("t1","Es Kopi Susu Aren","Kopi",22000,8000,80,{mods:DRINK}),P("t1","Americano","Kopi",20000,6000,90,{mods:DRINK}),P("t1","Cappuccino","Kopi",26000,9000,60,{mods:DRINK}),
-    P("t1","Kopi Tubruk","Kopi",15000,4000,8,{mods:HOT}),P("t1","Matcha Latte","Non-Kopi",28000,11000,40,{mods:DRINK}),P("t1","Cokelat Panas","Non-Kopi",24000,9000,35,{mods:HOT}),
-    P("t1","Teh Tarik","Non-Kopi",18000,5000,6,{mods:DRINK}),P("t1","Croissant Mentega","Makanan",25000,12000,20),P("t1","Pisang Goreng Keju","Makanan",20000,7000,30),
-    P("t1","Roti Bakar Srikaya","Makanan",22000,8000,0),P("t1","Nasi Goreng Kampung","Makanan",35000,15000,25,{mods:SPICY}),P("t1","Kentang Goreng","Makanan",23000,8000,45),
-    P("t2","Beras Premium 5 kg","Sembako",78000,68000,40,{sku:"8992761100015",exp:exp(240),whole:{min:5,price:76000}}),P("t2","Minyak Goreng 2 L","Sembako",36000,31000,55,{sku:"8993496110027",exp:exp(180),whole:{min:6,price:35000}}),
-    P("t2","Gula Pasir 1 kg","Sembako",17500,15000,9,{sku:"8997035600034",exp:exp(300),whole:{min:5,price:16800}}),P("t2","Telur Ayam 1 kg","Sembako",29000,25000,30,{sku:"2000000000041",exp:exp(9)}),
-    P("t2","Susu UHT 1 L","Minuman",19500,16000,24,{sku:"8992753100058",exp:exp(21)}),P("t2","Roti Tawar","Roti",16000,12500,12,{sku:"8996001300065",exp:exp(3)}),
-    P("t2","Sabun Mandi","Kebersihan",4500,3200,120,{sku:"8999999100072",exp:exp(700),whole:{min:12,price:4100}}),P("t2","Mi Instan Goreng","Makanan",3500,2800,300,{sku:"0089686010089",exp:exp(150),whole:{min:10,price:3200}}),
-    P("t2","Air Mineral 600 ml","Minuman",4000,2500,200,{sku:"8886008101096",exp:exp(365),whole:{min:24,price:3500}}),
-    P("t3","Bakso Urat","Bakso",18000,8000,60),P("t3","Bakso Telur","Bakso",20000,9000,40),P("t3","Mi Ayam","Mi",15000,6000,50),P("t3","Es Jeruk","Minuman",6000,2000,80),
-    P("t4","Cuci Kering per kg","Kiloan",7000,2500,999),P("t4","Cuci Setrika per kg","Kiloan",10000,3500,999),P("t4","Bed Cover","Satuan",35000,12000,999)
-  ];
-  const transactions = [];
-  const methods = ["Tunai","QRIS","QRIS","Kartu Debit","Tunai","QRIS"];
-  const cashiers = {t1:["u3","u4","u2"],t2:["u6","u5"],t3:["u7"],t4:["u8"]};
-  for(const t of tenants){
-    const tp = products.filter(p=>p.tenantId===t.id);
-    const volume = {t1:16,t2:22,t3:9,t4:4}[t.id];
-    for(let d=6; d>=0; d--){
-      const n = Math.round(volume*(0.7+r()*0.6) * (d===0?0.6:1));
-      for(let i=0;i<n;i++){
-        const hour = [8,9,10,12,12,13,13,15,16,17,19,19,20][Math.floor(r()*13)];
-        const base = new Date(now - d*86400000); base.setHours(hour, Math.floor(r()*60), 0, 0);
-        if(base.getTime()>now) base.setTime(now - Math.floor(r()*3600000));
-        const items=[]; const k=1+Math.floor(r()*3);
-        for(let j=0;j<k;j++){ const p=tp[Math.floor(r()*tp.length)]; const ex=items.find(x=>x.pid===p.id); if(ex) ex.qty++; else items.push({pid:p.id,name:p.name,qty:1+Math.floor(r()*2),price:p.price,cost:p.cost}); }
-        const tx = makeTrx(t, items, 0, methods[Math.floor(r()*methods.length)], cashiers[t.id][Math.floor(r()*cashiers[t.id].length)], base.getTime());
-        if(isFnb(t)){ tx.orderType = ORDER_TYPES[Math.floor(r()*3)]; if(tx.orderType==="Makan di sini") tx.table = String(1+Math.floor(r()*12)); tx.kitchen="selesai"; }
-        transactions.push(tx);
-      }
-    }
-  }
-  transactions.sort((a,b)=>b.time-a.time);
-  const open = transactions.filter(x=>x.tenantId==="t1").slice(0,4);
-  ["baru","baru","proses","siap"].forEach((k,i)=>{ if(open[i]){ open[i].kitchen=k; open[i].time=now-(i*4+2)*60000; } });
-  for(const x of open){ for(const it of x.items){ const p=products.find(p=>p.id===it.pid); if(p&&p.mods&&r()>.3) it.mods=Object.fromEntries(p.mods.map(m=>[m.name,m.opts[Math.floor(r()*m.opts.length)]])); } }
-  return {tenants,users,products,transactions,seq:1000};
-}
 function makeTrx(t, items, discPct, method, cashierId, time){
   const subtotal = items.reduce((s,x)=>s+x.price*x.qty,0);
   const discount = Math.round(subtotal*discPct/100);
@@ -295,63 +233,119 @@ function makeTrx(t, items, discPct, method, cashierId, time){
   return {id:"TRX-"+Math.random().toString(36).slice(2,7).toUpperCase(),tenantId:t.id,cashierId,time,items,subtotal,discount,tax,total,method,paid:total,change:0};
 }
 
-let db; try{ db = JSON.parse(localStorage.getItem(KEY)); }catch(e){}
-if(!db || !db.tenants) db = seed();
-function save(){ try{ localStorage.setItem(KEY, JSON.stringify(db)); }catch(e){} }
+let db = {tenants:[],users:[],products:[],transactions:[]};
+let session = null;
+let booting = true;
+const hashMode = () => ({"#daftar":"signup","#setup":"setup"})[location.hash] || "login";
+const ui = {view:null, cat:"Semua", q:"", cart:[], disc:0, modal:null, order:{type:"Makan di sini",table:""}, auth:hashMode()};
+try{ ui.view = sessionStorage.getItem("kasira-view") || null; }catch(e){}
+function persistUi(){ try{ sessionStorage.setItem("kasira-view", ui.view||""); }catch(e){} }
 
-const ui = {userId:null, view:null, cat:"Semua", q:"", cart:[], disc:0, modal:null, actingAs:null, order:{type:"Makan di sini",table:""}};
-try{ const s=JSON.parse(sessionStorage.getItem(KEY+"-s")); if(s){ ui.userId=s.userId; ui.view=s.view; ui.actingAs=s.actingAs||null; } }catch(e){}
-function persistUi(){ try{ sessionStorage.setItem(KEY+"-s", JSON.stringify({userId:ui.userId,view:ui.view,actingAs:ui.actingAs})); }catch(e){} }
+async function api(method, path, body){
+  const hasBody = method!=="GET" && method!=="DELETE";
+  let res;
+  try{ res = await fetch("/api/"+path, {method, credentials:"same-origin", headers:hasBody?{"content-type":"application/json"}:{}, body:hasBody?JSON.stringify(body||{}):undefined}); }
+  catch(e){ throw new Error("Tidak bisa terhubung ke server. Periksa internet."); }
+  let data = {}; try{ data = await res.json(); }catch(e){}
+  if(!res.ok){ const err = new Error(data.error || "Gagal memproses permintaan"); err.status = res.status; throw err; }
+  return data;
+}
+async function boot(){
+  booting = true; render();
+  try{
+    const m = await api("GET","me");
+    session = {user:m.user, impersonating:m.impersonating};
+    db = {tenants:m.tenant?[m.tenant]:[], users:m.staff||[], products:[], transactions:[]};
+    if(m.user.role==="superadmin"){ const a = await api("GET","admin/tenants"); db.tenants = a.tenants; db.transactions = a.transactions; }
+    else if(m.tenant && (m.tenant.access==="trial" || m.tenant.access==="paid")){ const d = await api("GET","data"); db.products = d.products; db.transactions = d.transactions; }
+  }catch(e){ session = null; if(e.status!==401) toast(e.message); }
+  booting = false; render();
+}
+const fmtDate = ts => new Date(ts).toLocaleDateString("id-ID",{day:"numeric",month:"long",year:"numeric"});
+function putTenant(nt){ const i = db.tenants.findIndex(x=>x.id===nt.id); if(i>=0) db.tenants[i] = {...db.tenants[i], ...nt}; }
 
-const me = () => db.users.find(u=>u.id===ui.userId);
+const me = () => session ? session.user : null;
 const tenantOf = u => u && db.tenants.find(t=>t.id===u.tenantId);
 const root = document.getElementById("root");
 
 function toast(msg){ document.querySelectorAll(".toast").forEach(x=>x.remove()); const el=document.createElement("div"); el.className="toast"; el.textContent=msg; document.body.appendChild(el); setTimeout(()=>el.remove(),2200); }
 
 function render(){
-  const u = me();
   const modalHtml = ui.modal?`<div class="scrim" data-a="scrim"><div class="modal" role="dialog" aria-modal="true">${ui.modal()}</div></div>`:"";
-  if(!u){ root.innerHTML = loginView() + modalHtml; return; }
+  if(booting){ root.innerHTML = `<div class="login"><p class="muted">Memuat Kasira…</p></div>`; return; }
+  const u = me();
+  if(!u){ root.innerHTML = authView() + modalHtml; return; }
   const t = tenantOf(u);
-  const menu = menuFor(u,t);
-  if(!ui.view || !menu.some(m=>m[0]===ui.view)) ui.view = menu[0][0];
+  const usable = !t || t.access==="trial" || t.access==="paid";
+  let menu = menuFor(u,t);
+  if(!usable) menu = (t.access==="expired" && u.role==="owner") ? [["billing","Langganan"]] : [];
+  if(menu.length && (!ui.view || !menu.some(m=>m[0]===ui.view))) ui.view = menu[0][0];
   persistUi();
   let body;
-  if(t && t.status!=="aktif") body = `<div class="blocked panel"><h2>Akun ${esc(t.name)} sedang ditangguhkan</h2><p class="muted">Pemilik aplikasi menangguhkan langganan usaha ini. Kasir dan laporan tidak bisa dipakai sampai akun diaktifkan kembali.</p><div><button class="btn" data-a="logout">Keluar</button></div></div>`;
+  if(t && t.access==="suspended") body = `<div class="blocked panel"><h2>Akun ${esc(t.name)} sedang ditangguhkan</h2><p class="muted">Pemilik aplikasi menangguhkan langganan usaha ini. Kasir dan laporan tidak bisa dipakai sampai akun diaktifkan kembali.</p><div><button class="btn" data-a="logout">Keluar</button></div></div>`;
+  else if(t && !usable && u.role!=="owner") body = `<div class="blocked panel"><h2>Masa coba ${esc(t.name)} sudah habis</h2><p class="muted">Kasir terkunci sampai pemilik usaha membayar langganan. Hubungi pemilik usahamu.</p><div><button class="btn" data-a="logout">Keluar</button></div></div>`;
   else body = ({platform:platformView,tenants:tenantsView,plans:plansView,dash:dashView,pos:posView,products:productsView,trx:trxView,kitchen:kitchenView,staff:staffView,billing:billingView})[ui.view](u,t);
+  let bar = "";
+  if(t && t.access==="trial") bar = `<div class="trial-bar"><span><b>Masa coba gratis: sisa ${t.daysLeft} hari.</b> <span class="muted">Berakhir ${fmtDate(t.trialEnds)}. Setelah itu wajib berlangganan.</span></span>${u.role==="owner"&&ui.view!=="billing"?`<button class="btn sm primary" data-a="nav" data-v="billing">Pilih paket</button>`:""}</div>`;
+  if(t && t.access==="expired" && u.role==="owner") bar = `<div class="trial-bar bad"><span><b>Masa coba sudah habis.</b> <span class="muted">Bayar langganan untuk membuka kembali kasir, produk, dan laporan. Data usahamu tetap tersimpan.</span></span></div>`;
   root.innerHTML = `<div class="app">
     <aside class="side">
       <div class="brand"><i aria-hidden="true"></i>Kasira</div>
-      ${t?`<div class="tenant-chip"><div class="label">Usaha</div><div style="font-weight:700">${esc(t.name)}</div><div class="muted" style="font-size:.8rem">${esc(t.type)} · ${esc(t.city)} · Paket ${PLANS[t.plan].name}</div></div>`
+      ${t?`<div class="tenant-chip"><div class="label">Usaha</div><div style="font-weight:700">${esc(t.name)}</div><div class="muted" style="font-size:.8rem">${esc(t.type)} · ${esc(t.city)} · ${t.access==="trial"?"Coba gratis":"Paket "+PLANS[t.plan].name}</div></div>`
          :`<div class="tenant-chip"><div class="label">Konsol</div><div style="font-weight:700">Pemilik Aplikasi</div><div class="muted" style="font-size:.8rem">${db.tenants.length} usaha terdaftar</div></div>`}
       <nav class="nav" aria-label="Menu">${menu.map(([k,l])=>`<button data-a="nav" data-v="${k}" ${ui.view===k?'aria-current="page"':""}>${l}</button>`).join("")}</nav>
       <div class="side-foot">
-        ${ui.actingAs?`<button class="btn sm" data-a="unimpersonate">Kembali ke konsol</button>`:""}
+        ${session.impersonating?`<button class="btn sm" data-a="unimpersonate">Kembali ke konsol</button>`:""}
         <div class="row who"><span class="avatar">${initials(u.name)}</span><div><div style="font-weight:600;font-size:.9rem">${esc(u.name)}</div><div class="muted" style="font-size:.78rem">${ROLE[u.role]}</div></div></div>
         <button class="btn sm" data-a="logout">Keluar</button>
       </div>
     </aside>
-    <main class="main"><div class="main-inner">${body}</div></main>
+    <main class="main"><div class="main-inner">${bar}${body}</div></main>
   </div>${modalHtml}`;
 }
 
-/* ---------- login ---------- */
-function loginView(){
-  const groups = [["superadmin","Tingkat 1 · Pemilik Aplikasi"],["owner","Tingkat 2 · Pelanggan (Pemilik Usaha)"],["staff","Tingkat 3 · Akun Internal Pelanggan"]];
-  const list = g => db.users.filter(u=> g==="staff" ? (u.role==="manager"||u.role==="cashier") : u.role===g);
+/* ---------- auth ---------- */
+function authView(){
+  const m = ui.auth;
+  const tabs = m==="setup" ? "" : `<div class="seg" role="group" aria-label="Masuk atau daftar"><button data-a="auth" data-v="login" aria-pressed="${m==="login"}">Masuk</button><button data-a="auth" data-v="signup" aria-pressed="${m==="signup"}">Daftar gratis</button></div>`;
+  const forms = {
+    login:`<div><h2>Masuk ke Kasira</h2><p class="muted" style="font-size:.9rem">Untuk pemilik usaha, manajer, dan kasir.</p></div>
+      <form class="stack" data-form="login">
+        <div class="field"><label for="le">Email</label><input class="input" id="le" name="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="lp">Kata sandi</label><input class="input" id="lp" name="password" type="password" autocomplete="current-password" required></div>
+        <button class="btn primary" type="submit">Masuk</button>
+      </form>
+      <p class="muted" style="font-size:.88rem">Belum punya akun? <button class="linkish" data-a="auth" data-v="signup">Daftar dan coba gratis ${TRIAL_DAYS} hari</button></p>`,
+    signup:`<div><h2>Coba gratis ${TRIAL_DAYS} hari</h2><p class="muted" style="font-size:.9rem">Semua fitur paket Pro selama ${TRIAL_DAYS} hari, tanpa kartu kredit. Setelah masa coba habis, pilih paket berbayar untuk lanjut memakai kasir.</p></div>
+      <form class="stack" data-form="signup">
+        <div class="field"><label for="sn1">Nama kamu</label><input class="input" id="sn1" name="name" autocomplete="name" required></div>
+        <div class="field"><label for="sb1">Nama usaha</label><input class="input" id="sb1" name="business" required placeholder="mis. Warung Makan Bu Tini"></div>
+        <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="st1">Jenis usaha</label><select class="input" id="st1" name="type"><option>F&amp;B</option><option>Minimarket</option><option>Retail</option><option>Jasa</option></select></div>
+        <div class="field" style="flex:1"><label for="sc1">Kota</label><input class="input" id="sc1" name="city" required></div></div>
+        <div class="field"><label for="se1">Email</label><input class="input" id="se1" name="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="sp1">Kata sandi</label><input class="input" id="sp1" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="muted" style="font-size:.8rem">Minimal 8 karakter.</span></div>
+        <button class="btn primary" type="submit">Mulai coba gratis</button>
+      </form>
+      <p class="muted" style="font-size:.88rem">Sudah punya akun? <button class="linkish" data-a="auth" data-v="login">Masuk</button></p>`,
+    setup:`<div><h2>Aktivasi Pemilik Aplikasi</h2><p class="muted" style="font-size:.9rem">Sekali pakai. Hanya email pemilik aplikasi yang tersimpan di server yang bisa diaktifkan di sini.</p></div>
+      <form class="stack" data-form="setup">
+        <div class="field"><label for="on1">Nama</label><input class="input" id="on1" name="name" autocomplete="name" required></div>
+        <div class="field"><label for="oe1">Email pemilik aplikasi</label><input class="input" id="oe1" name="email" type="email" autocomplete="username" required></div>
+        <div class="field"><label for="op1">Kata sandi baru</label><input class="input" id="op1" name="password" type="password" autocomplete="new-password" minlength="8" required></div>
+        <div class="field"><label for="op2">Ulangi kata sandi</label><input class="input" id="op2" name="password2" type="password" autocomplete="new-password" minlength="8" required></div>
+        <button class="btn primary" type="submit">Aktifkan akun pemilik</button>
+      </form>
+      <p class="muted" style="font-size:.88rem"><button class="linkish" data-a="auth" data-v="login">Kembali ke halaman masuk</button></p>`
+  };
   return `<div class="login"><div class="login-card">
     <div class="login-hero">
-      <div class="stack"><div class="label" style="color:inherit;opacity:.8">Prototipe · data contoh</div><h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk semua jenis usaha. Satu platform, banyak usaha, setiap usaha punya tim sendiri.</p></div>
-      <ul><li>Mode F&amp;B: varian menu, nomor meja, layar dapur</li><li>Mode minimarket: scan barcode, harga grosir, kedaluwarsa</li><li>Kasir cepat dengan QRIS, tunai, kartu</li><li>Stok berkurang otomatis tiap penjualan</li><li>Dasbor omzet, laba kotor, jam tersibuk</li><li>Peran staf: Pemilik, Manajer, Kasir</li></ul>
+      <div class="stack"><a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasira</a><h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk semua jenis usaha. Satu platform, banyak usaha, setiap usaha punya tim sendiri.</p></div>
+      <ul><li>Mode F&amp;B: varian menu, nomor meja, layar dapur</li><li>Mode minimarket: scan barcode, harga grosir, kedaluwarsa</li><li>Kasir cepat dengan QRIS, tunai, kartu</li><li>Stok berkurang otomatis tiap penjualan</li><li>Dasbor omzet, laba kotor, jam tersibuk</li><li>Gratis ${TRIAL_DAYS} hari, lalu mulai Rp99rb/bulan</li></ul>
     </div>
-    <div class="login-side">
-      <div><h2>Masuk sebagai</h2><p class="muted" style="font-size:.9rem">Pilih akun contoh untuk mencoba tiap tingkat akses.</p></div>
-      ${groups.map(([g,l])=>`<div class="stack" style="gap:.45rem"><div class="tier">${l}</div>${list(g).map(u=>{const t=tenantOf(u);return `<button class="acct" data-a="login" data-id="${u.id}"><span class="avatar" style="background:${swatch(u.name)};color:#fff">${initials(u.name)}</span><span><b>${esc(u.name)}</b><br><span class="muted" style="font-size:.82rem">${ROLE[u.role]}${t?" · "+esc(t.name):""}</span></span>${t&&t.status!=="aktif"?'<span class="pill bad">ditangguhkan</span>':""}</button>`}).join("")}</div>`).join("")}
-      <div class="spread" style="border-top:1px solid var(--line);padding-top:.9rem"><button class="btn primary" data-a="signup">Daftarkan usaha baru</button><button class="btn sm" data-a="reset">Reset data contoh</button></div>
-    </div>
+    <div class="login-side">${tabs}${forms[m]||forms.login}</div>
   </div></div>`;
 }
+
 
 /* ---------- metrics ---------- */
 function trxOf(tid){ return db.transactions.filter(x=>x.tenantId===tid); }
@@ -505,7 +499,7 @@ function receiptText(x){
 }
 function receiptModal(x){ return ()=>`<div class="spread"><h2>Struk ${esc(x.id)}</h2><button class="btn sm" data-a="close">Tutup</button></div>
   <div class="receipt">${esc(receiptText(x))}</div>
-  <div class="field"><label for="wa">Kirim struk ke WhatsApp pelanggan</label><div class="row" style="flex-wrap:nowrap"><input class="input" id="wa" type="tel" placeholder="08xx xxxx xxxx"><button class="btn" data-a="wa">Kirim</button></div><span class="muted" style="font-size:.8rem">Di prototipe ini pengiriman hanya disimulasikan.</span></div>
+  <div class="field"><label for="wa">Kirim struk ke WhatsApp pelanggan</label><div class="row" style="flex-wrap:nowrap"><input class="input" id="wa" type="tel" placeholder="08xx xxxx xxxx"><button class="btn" data-a="wa" data-id="${x.id}">Kirim</button></div><span class="muted" style="font-size:.8rem">Membuka WhatsApp dengan teks struk siap kirim.</span></div>
   <div class="row"><button class="btn" data-a="copy" data-id="${x.id}">Salin struk</button><button class="btn primary" data-a="close">Transaksi baru</button></div>`; }
 
 /* ---------- tenant: products ---------- */
@@ -553,7 +547,7 @@ function kitchenView(u,t){
       <div class="muted num" style="font-size:.78rem">${x.id}${x.table?" · "+esc(x.orderType):""}</div>
       <ul>${x.items.map(i=>`<li><b class="num">${i.qty}×</b> ${esc(i.name)}${i.mods?`<div class="muted" style="font-size:.8rem">${esc(modsText(i.mods))}</div>`:""}</li>`).join("")}</ul>
       <button class="btn sm ${k==="siap"?"":"primary"}" data-a="kstep" data-id="${x.id}">${k==="baru"?"Mulai buat":k==="proses"?"Tandai siap":"Serahkan ke pelanggan"}</button></article>`).join("") || `<p class="muted" style="font-size:.9rem">Kosong.</p>`}</section>`; };
-  return `<div class="spread"><div><h1>Dapur</h1><p class="muted">Pesanan dari kasir langsung muncul di sini. Kartu merah berarti sudah menunggu 15 menit atau lebih.</p></div><button class="btn" data-a="nav" data-v="kitchen">Muat ulang</button></div>
+  return `<div class="spread"><div><h1>Dapur</h1><p class="muted">Pesanan dari kasir langsung muncul di sini. Kartu merah berarti sudah menunggu 15 menit atau lebih.</p></div><button class="btn" data-a="reload">Muat ulang</button></div>
   <div class="kboard">${col("baru")}${col("proses")}${col("siap")}</div>`;
 }
 
@@ -570,69 +564,80 @@ function staffView(u,t){
 }
 function staffModal(){ return `<h2>Tambah staf</h2><form class="stack" data-form="staff">
   <div class="field"><label for="sn">Nama</label><input class="input" id="sn" name="name" required></div>
-  <div class="field"><label for="se">Email</label><input class="input" id="se" name="email" type="email" required></div>
+  <div class="field"><label for="se">Email</label><input class="input" id="se" name="email" type="email" autocomplete="off" required></div>
   <div class="field"><label for="sr">Peran</label><select class="input" id="sr" name="role"><option value="cashier">Kasir</option><option value="manager">Manajer</option></select></div>
-  <div class="field"><label for="sp">PIN kasir (6 angka)</label><input class="input num" id="sp" name="pin" inputmode="numeric" pattern="[0-9]{6}" required placeholder="123456"></div>
+  <div class="field"><label for="sp">Kata sandi awal</label><input class="input" id="sp" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="muted" style="font-size:.8rem">Minimal 8 karakter. Berikan ke staf untuk masuk dengan emailnya.</span></div>
   <div class="row"><button class="btn primary" type="submit">Tambah</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`; }
 
 /* ---------- tenant: billing ---------- */
 function billingView(u,t){
-  return `<div><h1>Langganan</h1><p class="muted">Paket aktif ${PLANS[t.plan].name}. Tagihan berikutnya 1 ${new Date(new Date().getFullYear(),new Date().getMonth()+1,1).toLocaleDateString("id-ID",{month:"long",year:"numeric"})}.</p></div>
-  <div class="plans">${Object.entries(PLANS).map(([k,p])=>`<div class="panel plan${t.plan===k?" current":""}"><div class="spread"><h2>${p.name}</h2>${t.plan===k?'<span class="pill ok">aktif</span>':""}</div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /bulan</span></div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul>${t.plan===k?"":`<button class="btn ${PLANS[k].price>PLANS[t.plan].price?"primary":""}" data-a="setplan" data-v="${k}">${PLANS[k].price>PLANS[t.plan].price?"Naikkan ke ":"Pindah ke "}${p.name}</button>`}</div>`).join("")}</div>`;
+  const status = t.access==="trial" ? `Masa coba gratis berakhir ${fmtDate(t.trialEnds)} (sisa ${t.daysLeft} hari). Setelah itu kasir terkunci sampai langganan dibayar.`
+    : t.access==="paid" ? `Paket ${PLANS[t.plan].name} aktif sampai ${fmtDate(t.paidUntil)}.`
+    : `Masa coba atau langganan sudah habis. Pilih paket dan bayar untuk membuka kembali kasir.`;
+  const pr = t.payRequest;
+  return `<div><h1>Langganan</h1><p class="muted">${status}</p></div>
+  ${pr?`<div class="panel stack" style="border-color:var(--gold)"><div class="spread"><h2>Menunggu pembayaran</h2><span class="pill gold">diproses</span></div><p>Paket <b>${PLANS[pr.plan].name}</b>, 1 bulan, <b class="num">${rp(pr.amount)}</b>. Diajukan ${fmtDate(pr.at)}.</p><p class="muted" style="font-size:.9rem">Tim Kasira akan mengirim instruksi pembayaran ke <b>${esc(u.email)}</b>. Langganan aktif begitu pembayaran dikonfirmasi.</p></div>`:""}
+  <div class="plans">${Object.entries(PLANS).map(([k,p])=>{ const cur=t.access==="paid"&&t.plan===k; return `<div class="panel plan${cur?" current":""}"><div class="spread"><h2>${p.name}</h2>${cur?'<span class="pill ok">aktif</span>':""}</div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /bulan</span></div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul><button class="btn ${k==="pro"?"primary":""}" data-a="payplan" data-v="${k}">${cur?"Perpanjang":"Bayar paket "+p.name}</button></div>`; }).join("")}</div>`;
 }
 
 /* ---------- super admin ---------- */
+function accessPill(t){
+  if(t.access==="trial") return `<span class="pill gold">coba · ${t.daysLeft} hari</span>`;
+  if(t.access==="paid") return `<span class="pill ok">aktif s/d ${new Date(t.paidUntil).toLocaleDateString("id-ID",{day:"numeric",month:"short"})}</span>`;
+  if(t.access==="expired") return `<span class="pill bad">habis</span>`;
+  return `<span class="pill bad">ditangguhkan</span>`;
+}
 function platformView(){
-  const active=db.tenants.filter(t=>t.status==="aktif");
-  const mrr=active.reduce((s,t)=>s+PLANS[t.plan].price,0);
+  const paid=db.tenants.filter(t=>t.access==="paid"), trial=db.tenants.filter(t=>t.access==="trial");
+  const mrr=paid.reduce((s,t)=>s+PLANS[t.plan].price,0);
   const gmv=db.transactions.reduce((s,x)=>s+x.total,0);
-  const per=db.tenants.map(t=>({t,v:trxOf(t.id).reduce((s,x)=>s+x.total,0)})).sort((a,b)=>b.v-a.v); const mx=per[0]?per[0].v||1:1;
+  const waiting=db.tenants.filter(t=>t.payRequest).length;
+  const per=db.tenants.map(t=>({t,v:trxOf(t.id).reduce((s,x)=>s+x.total,0)})).sort((a,b)=>b.v-a.v).slice(0,8); const mx=per[0]?per[0].v||1:1;
   return `<div><div class="label">Konsol Pemilik Aplikasi</div><h1>Ringkasan Platform</h1></div>
   <div class="tiles">
-    <div class="tile"><span class="label">Usaha terdaftar</span><span class="v">${db.tenants.length}</span><span class="d muted">${active.length} aktif</span></div>
-    <div class="tile"><span class="label">Pendapatan langganan / bulan</span><span class="v">${rp(mrr)}</span><span class="d muted">MRR dari usaha aktif</span></div>
+    <div class="tile"><span class="label">Usaha terdaftar</span><span class="v">${db.tenants.length}</span><span class="d muted">${paid.length} berbayar · ${trial.length} masa coba</span></div>
+    <div class="tile"><span class="label">Pendapatan langganan / bulan</span><span class="v">${rp(mrr)}</span><span class="d muted">MRR dari usaha berbayar</span></div>
     <div class="tile"><span class="label">Nilai transaksi 7 hari</span><span class="v">${rp(gmv)}</span><span class="d muted">GMV semua usaha</span></div>
-    <div class="tile"><span class="label">Akun pengguna</span><span class="v">${db.users.length-1}</span><span class="d muted">pemilik dan staf</span></div>
+    <div class="tile"><span class="label">Menunggu pembayaran</span><span class="v">${waiting}</span><span class="d muted">${waiting?'<button class="linkish" data-a="nav" data-v="tenants">lihat pelanggan</button>':"tidak ada"}</span></div>
   </div>
   <div class="grid-2">
     <div class="panel stack"><div class="spread"><h2>Nilai transaksi seluruh platform</h2></div>${barChart(last7(db.transactions))}</div>
-    <div class="panel stack"><h2>Usaha paling aktif</h2>${per.map(({t,v})=>`<div class="stack" style="gap:.25rem"><div class="spread"><span>${esc(t.name)}</span><span class="num muted">${rp(v)}</span></div><div class="bar-meter"><i style="width:${v/mx*100}%"></i></div></div>`).join("")}</div>
+    <div class="panel stack"><h2>Usaha paling aktif</h2>${per.length?per.map(({t,v})=>`<div class="stack" style="gap:.25rem"><div class="spread"><span>${esc(t.name)}</span><span class="num muted">${rp(v)}</span></div><div class="bar-meter"><i style="width:${v/mx*100}%"></i></div></div>`).join(""):'<p class="muted">Belum ada usaha terdaftar.</p>'}</div>
   </div>`;
 }
 function tenantsView(){
-  return `<div class="spread"><div><h1>Pelanggan</h1><p class="muted">Setiap usaha punya data, staf, dan langganan sendiri yang terpisah.</p></div><button class="btn primary" data-a="signup">Tambah usaha</button></div>
-  <div class="panel tbl-wrap"><table><thead><tr><th>Usaha</th><th>Jenis</th><th>Paket</th><th>Status</th><th class="r">Staf</th><th class="r">Transaksi 7 hari</th><th></th></tr></thead><tbody>
-  ${db.tenants.map(t=>{const tr=trxOf(t.id); return `<tr><td><b>${esc(t.name)}</b><div class="muted" style="font-size:.8rem">${esc(t.city)} · sejak ${new Date(t.joined).toLocaleDateString("id-ID",{month:"short",year:"numeric"})}</div></td><td>${esc(t.type)}</td><td><span class="pill ${t.plan==="bisnis"?"gold":t.plan==="pro"?"ok":""}">${PLANS[t.plan].name}</span></td><td><span class="pill ${t.status==="aktif"?"ok":"bad"}">${t.status}</span></td><td class="r num">${db.users.filter(u=>u.tenantId===t.id).length}</td><td class="r num">${tr.length} · ${rp(tr.reduce((s,x)=>s+x.total,0))}</td>
-  <td class="r" style="white-space:nowrap"><button class="btn sm" data-a="impersonate" data-id="${t.id}">Masuk sebagai pemilik</button> <button class="btn sm ${t.status==="aktif"?"danger":""}" data-a="togglet" data-id="${t.id}">${t.status==="aktif"?"Tangguhkan":"Aktifkan"}</button></td></tr>`}).join("")}
+  return `<div class="spread"><div><h1>Pelanggan</h1><p class="muted">Usaha mendaftar sendiri dan mendapat masa coba ${TRIAL_DAYS} hari. Aktifkan langganan setelah pembayaran diterima.</p></div><button class="btn" data-a="reload">Muat ulang</button></div>
+  <div class="panel tbl-wrap"><table><thead><tr><th>Usaha</th><th>Jenis</th><th>Status</th><th>Permintaan bayar</th><th class="r">Akun</th><th class="r">Transaksi 7 hari</th><th></th></tr></thead><tbody>
+  ${db.tenants.map(t=>{const tr=trxOf(t.id); return `<tr><td><b>${esc(t.name)}</b><div class="muted" style="font-size:.8rem">${t.owner?esc(t.owner.name)+" · "+esc(t.owner.email):""}<br>${esc(t.city)} · daftar ${new Date(t.joined).toLocaleDateString("id-ID",{day:"numeric",month:"short",year:"numeric"})}</div></td><td>${esc(t.type)}</td><td>${accessPill(t)}${t.access==="paid"?` <span class="pill">${PLANS[t.plan].name}</span>`:""}</td>
+  <td>${t.payRequest?`<span class="pill gold">${PLANS[t.payRequest.plan].name} · ${rp(t.payRequest.amount)}</span>`:'<span class="muted">–</span>'}</td><td class="r num">${t.users}</td><td class="r num">${tr.length} · ${rp(tr.reduce((s,x)=>s+x.total,0))}</td>
+  <td class="r" style="white-space:nowrap"><button class="btn sm primary" data-a="extend" data-id="${t.id}">Aktifkan langganan</button> <button class="btn sm" data-a="impersonate" data-id="${t.id}">Masuk sebagai pemilik</button> <button class="btn sm ${t.status==="aktif"?"danger":""}" data-a="togglet" data-id="${t.id}">${t.status==="aktif"?"Tangguhkan":"Pulihkan"}</button></td></tr>`}).join("") || `<tr><td colspan="7" class="empty">Belum ada usaha yang mendaftar.</td></tr>`}
   </tbody></table></div>`;
 }
+function extendModal(t){ const pr=t.payRequest; return ()=>`<h2>Aktifkan langganan ${esc(t.name)}</h2><p class="muted" style="font-size:.9rem">Pakai setelah pembayaran diterima. Masa aktif ditambahkan dari hari ini atau dari akhir langganan yang masih berjalan.</p>
+  <form class="stack" data-form="extend" data-id="${t.id}">
+    <div class="field"><label for="xp">Paket</label><select class="input" id="xp" name="plan">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}" ${(pr?pr.plan:t.plan)===k?"selected":""}>${p.name} · ${rp(p.price)}/bln</option>`).join("")}</select></div>
+    <div class="field"><label for="xd">Tambah masa aktif (hari)</label><input class="input" id="xd" name="days" type="number" min="1" max="400" value="30" required></div>
+    <div class="row"><button class="btn primary" type="submit">Aktifkan</button><button class="btn" type="button" data-a="close">Batal</button></div>
+  </form>`; }
 function plansView(){
-  const count=k=>db.tenants.filter(t=>t.plan===k).length;
-  return `<div><h1>Paket Langganan</h1><p class="muted">Paket yang bisa dipilih pelanggan saat mendaftar.</p></div>
+  const count=k=>db.tenants.filter(t=>t.access==="paid"&&t.plan===k).length;
+  return `<div><h1>Paket Langganan</h1><p class="muted">Usaha baru mendapat semua fitur Pro gratis selama ${TRIAL_DAYS} hari. Setelah itu wajib memilih paket berbayar. Saat ini ${db.tenants.filter(t=>t.access==="trial").length} usaha dalam masa coba.</p></div>
   <div class="plans">${Object.entries(PLANS).map(([k,p])=>`<div class="panel plan"><div class="spread"><h2>${p.name}</h2><span class="pill">${count(k)} usaha</span></div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /bulan</span></div><ul>${p.feat.map(f=>`<li>${f}</li>`).join("")}</ul></div>`).join("")}</div>`;
 }
-function signupModal(){ return `<h2>Daftarkan usaha baru</h2><p class="muted" style="font-size:.9rem">Usaha mendapat ruang data sendiri dan akun Pemilik Usaha.</p><form class="stack" data-form="signup">
-  <div class="field"><label for="bn">Nama usaha</label><input class="input" id="bn" name="name" required placeholder="mis. Warung Makan Bu Tini"></div>
-  <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="bt">Jenis</label><select class="input" id="bt" name="type"><option>F&amp;B</option><option>Minimarket</option><option>Retail</option><option>Jasa</option></select></div>
-  <div class="field" style="flex:1"><label for="bc">Kota</label><input class="input" id="bc" name="city" required></div></div>
-  <div class="field"><label for="on">Nama pemilik</label><input class="input" id="on" name="owner" required></div>
-  <div class="field"><label for="oe">Email pemilik</label><input class="input" id="oe" name="email" type="email" required></div>
-  <div class="field"><label for="bp">Paket</label><select class="input" id="bp" name="plan">${Object.entries(PLANS).map(([k,p])=>`<option value="${k}">${p.name} · ${rp(p.price)}/bln</option>`).join("")}</select></div>
-  <div class="row"><button class="btn primary" type="submit">Daftar</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`; }
 
 /* ---------- events ---------- */
 function openModal(fn){ ui.modal = typeof fn==="function"?fn:()=>fn; render(); const f=root.querySelector(".modal input,.modal button"); if(f) f.focus(); }
 function closeModal(){ ui.modal=null; render(); }
 
-root.addEventListener("click", e=>{
+root.addEventListener("click", async e=>{
   const el = e.target.closest("[data-a]"); if(!el) return;
   const a=el.dataset.a, id=el.dataset.id, v=el.dataset.v;
   if(a==="scrim"){ if(e.target===el) closeModal(); return; }
   const u=me(), t=tenantOf(u);
-  switch(a){
-    case "login": ui.userId=id; ui.view=null; ui.cart=[]; ui.actingAs=null; render(); break;
-    case "logout": ui.userId=null; ui.actingAs=null; ui.cart=[]; ui.modal=null; persistUi(); render(); break;
-    case "reset": db=seed(); save(); toast("Data contoh dipulihkan"); render(); break;
+  try{ switch(a){
+    case "auth": ui.auth=v; history.replaceState(null,"",location.pathname+(v==="signup"?"#daftar":v==="setup"?"#setup":"")); render(); { const f=root.querySelector(".login-side input"); if(f) f.focus(); } break;
+    case "logout": try{ await api("POST","logout"); }catch(_){} session=null; ui.cart=[]; ui.modal=null; ui.view=null; ui.auth="login"; render(); break;
+    case "reload": await boot(); break;
     case "nav": ui.view=v; ui.modal=null; render(); window.scrollTo(0,0); break;
     case "cat": ui.cat=v; render(); break;
     case "add": { const p=db.products.find(p=>p.id===id); if(p.mods){ modPick=Object.fromEntries(p.mods.map(m=>[m.name,m.opts[0]])); openModal(modsModal(p)); break; } addToCart(p,null); render(); break; }
@@ -642,7 +647,7 @@ root.addEventListener("click", e=>{
     case "modadd": { const p=db.products.find(p=>p.id===id); if(addToCart(p,{...modPick})) toast(p.name+" ditambahkan"); closeModal(); break; }
     case "otype": ui.order.type=v; render(); break;
     case "demoscan": scan(v); break;
-    case "kstep": { const x=db.transactions.find(x=>x.id===id); x.kitchen = {baru:"proses",proses:"siap",siap:"selesai"}[x.kitchen]; save(); render(); if(x.kitchen==="selesai") toast("Pesanan "+(x.table?"meja "+x.table:x.id)+" diserahkan"); break; }
+    case "kstep": { const x=db.transactions.find(x=>x.id===id); const next={baru:"proses",proses:"siap",siap:"selesai"}[x.kitchen]; el.disabled=true; await api("PATCH","trx/"+encodeURIComponent(id),{kitchen:next}); x.kitchen=next; render(); if(next==="selesai") toast("Pesanan "+(x.table?"meja "+x.table:x.id)+" diserahkan"); break; }
     case "clear": ui.cart=[]; ui.disc=0; render(); break;
     case "pay": if(isFnb(t) && ui.order.type==="Makan di sini" && !ui.order.table.trim()){ toast("Isi nomor meja dulu"); const el=root.querySelector("#tbl"); if(el) el.focus(); break; } pay={method:"Tunai",paid:0}; openModal(payModal); break;
     case "method": pay.method=v; render(); break;
@@ -651,24 +656,32 @@ root.addEventListener("click", e=>{
       const c=cartCalc(t); const items=c.lines.map(l=>({pid:l.pid,name:l.name,qty:l.qty,price:l.unit,cost:l.cost,...(l.mods?{mods:l.mods}:{})}));
       const x=makeTrx(t,items,Math.min(Math.max(+ui.disc||0,0),100),pay.method,u.id,Date.now());
       x.paid = pay.method==="Tunai"?pay.paid:x.total; x.change = x.paid-x.total;
-      for(const i of items){ const p=db.products.find(p=>p.id===i.pid); if(p.stock<999) p.stock-=i.qty; }
       if(isFnb(t)){ x.orderType=ui.order.type; if(x.orderType==="Makan di sini") x.table=ui.order.table.trim(); x.kitchen="baru"; }
-      db.transactions.unshift(x); save(); ui.cart=[]; ui.disc=0; ui.order={type:ui.order.type,table:""}; openModal(receiptModal(x)); toast("Transaksi "+x.id+" tersimpan"); break; }
+      el.disabled=true; el.textContent="Menyimpan…";
+      const r=await api("POST","trx",{trx:x}); Object.assign(x,r.trx);
+      for(const i of items){ const p=db.products.find(p=>p.id===i.pid); if(p && p.stock<999) p.stock=Math.max(0,p.stock-i.qty); }
+      db.transactions.unshift(x); ui.cart=[]; ui.disc=0; ui.order={type:ui.order.type,table:""}; openModal(receiptModal(x)); toast("Transaksi "+x.id+" tersimpan"); break; }
     case "close": closeModal(); break;
     case "viewtrx": openModal(receiptModal(db.transactions.find(x=>x.id===id))); break;
     case "copy": { const txt=receiptText(db.transactions.find(x=>x.id===id)); const done=()=>toast("Struk disalin"); try{ navigator.clipboard.writeText(txt).then(done,()=>selectReceipt()); }catch(err){ selectReceipt(); } break; }
-    case "wa": { const n=root.querySelector("#wa").value.trim(); if(!/^0\d{8,13}$/.test(n.replace(/[\s-]/g,""))){ toast("Masukkan nomor WhatsApp yang dimulai 08"); break; } toast("Simulasi: struk dikirim ke "+n); break; }
-    case "newprod": { const plan=PLANS[t.plan]; if(db.products.filter(p=>p.tenantId===t.id).length>=plan.products){ toast("Batas produk paket "+plan.name+" tercapai"); break; } openModal(prodModal(null)); break; }
+    case "wa": { const n=root.querySelector("#wa").value.trim(); if(!/^0\d{8,13}$/.test(n.replace(/[\s-]/g,""))){ toast("Masukkan nomor WhatsApp yang dimulai 08"); break; } const txt=receiptText(db.transactions.find(x=>x.id===id)); window.open("https://wa.me/62"+n.replace(/[\s-]/g,"").slice(1)+"?text="+encodeURIComponent(txt),"_blank","noopener"); break; }
+    case "newprod": { const plan=PLANS[t.plan]; if(db.products.length>=plan.products){ toast("Batas produk paket "+plan.name+" tercapai"); break; } openModal(prodModal(null)); break; }
     case "editprod": openModal(prodModal(db.products.find(p=>p.id===id))); break;
     case "delprod": { const p=db.products.find(p=>p.id===id); openModal(()=>`<h2>Hapus ${esc(p.name)}?</h2><p class="muted">Produk hilang dari kasir. Riwayat transaksi tetap tersimpan.</p><div class="row"><button class="btn primary" data-a="delprod-ok" data-id="${p.id}">Hapus</button><button class="btn" data-a="close">Batal</button></div>`); break; }
-    case "delprod-ok": db.products=db.products.filter(p=>p.id!==id); ui.cart=ui.cart.filter(x=>x.pid!==id); save(); closeModal(); toast("Produk dihapus"); break;
-    case "newstaff": { const plan=PLANS[t.plan]; const n=db.users.filter(x=>x.tenantId===t.id&&x.role!=="owner").length; if(n>=plan.staff){ toast("Batas "+plan.staff+" staf di paket "+plan.name+". Naikkan paket untuk menambah."); break; } openModal(staffModal); break; }
-    case "delstaff": db.users=db.users.filter(x=>x.id!==id); save(); render(); toast("Staf dihapus"); break;
-    case "setplan": t.plan=v; save(); render(); toast("Paket diganti ke "+PLANS[v].name); break;
-    case "signup": openModal(signupModal); break;
-    case "togglet": { const x=db.tenants.find(x=>x.id===id); x.status=x.status==="aktif"?"ditangguhkan":"aktif"; save(); render(); toast(x.name+" "+x.status); break; }
-    case "impersonate": { const o=db.users.find(x=>x.tenantId===id&&x.role==="owner"); if(!o) break; ui.actingAs=ui.userId; ui.userId=o.id; ui.view=null; render(); toast("Masuk sebagai "+o.name); break; }
-    case "unimpersonate": ui.userId=ui.actingAs; ui.actingAs=null; ui.view="tenants"; render(); break;
+    case "delprod-ok": el.disabled=true; await api("DELETE","products/"+encodeURIComponent(id)); db.products=db.products.filter(p=>p.id!==id); ui.cart=ui.cart.filter(x=>x.pid!==id); closeModal(); toast("Produk dihapus"); break;
+    case "newstaff": { const plan=PLANS[t.plan]; const n=db.users.filter(x=>x.role!=="owner").length; if(n>=plan.staff){ toast("Batas "+plan.staff+" staf di paket "+plan.name+". Naikkan paket untuk menambah."); break; } openModal(staffModal); break; }
+    case "delstaff": { const s=db.users.find(x=>x.id===id); openModal(()=>`<h2>Hapus ${esc(s.name)}?</h2><p class="muted">Akun ini tidak bisa masuk lagi. Riwayat transaksinya tetap tersimpan.</p><div class="row"><button class="btn primary" data-a="delstaff-ok" data-id="${s.id}">Hapus</button><button class="btn" data-a="close">Batal</button></div>`); break; }
+    case "delstaff-ok": el.disabled=true; await api("DELETE","staff/"+encodeURIComponent(id)); db.users=db.users.filter(x=>x.id!==id); closeModal(); toast("Staf dihapus"); break;
+    case "payplan": { el.disabled=true; const r=await api("POST","billing/request",{plan:v}); t.payRequest=r.payRequest; render(); toast("Permintaan pembayaran paket "+PLANS[v].name+" terkirim"); break; }
+    case "extend": openModal(extendModal(db.tenants.find(x=>x.id===id))); break;
+    case "togglet": { const x=db.tenants.find(x=>x.id===id); el.disabled=true; const r=await api("POST","admin/tenants/"+encodeURIComponent(id),{action:x.status==="aktif"?"suspend":"activate"}); putTenant(r.tenant); render(); toast(x.name+" "+(r.tenant.status==="aktif"?"dipulihkan":"ditangguhkan")); break; }
+    case "impersonate": el.disabled=true; await api("POST","admin/impersonate",{tenantId:id}); ui.view=null; ui.cart=[]; await boot(); break;
+    case "unimpersonate": await api("POST","admin/unimpersonate"); ui.view="tenants"; ui.cart=[]; await boot(); break;
+  } }catch(err){
+    toast(err.message);
+    if(err.status===401){ session=null; ui.modal=null; render(); }
+    else if(err.status===402||err.status===403){ await boot(); }
+    else if(el.isConnected){ el.disabled=false; if(a==="confirm") el.textContent="Selesaikan transaksi"; }
   }
 });
 function selectReceipt(){ const r=root.querySelector(".receipt"); if(!r) return; const s=getSelection(), rg=document.createRange(); rg.selectNodeContents(r); s.removeAllRanges(); s.addRange(rg); toast("Teks struk dipilih, tekan salin"); }
@@ -680,28 +693,25 @@ root.addEventListener("input", e=>{
   if(a==="disc"){ ui.disc=e.target.value; render(); const d=root.querySelector("#disc"); d.focus(); const L=d.value.length; try{ d.setSelectionRange(L,L);}catch(_){} }
   if(a==="paid"){ pay.paid=+e.target.value||0; const t=tenantOf(me()), c=cartCalc(t), ch=pay.paid-c.total; root.querySelector("#chg").textContent = pay.paid?(ch>=0?rp(ch):"Uang kurang "+rp(-ch)):"–"; root.querySelector("#confirm-pay").disabled = ch<0; }
 });
-root.addEventListener("submit", e=>{
+root.addEventListener("submit", async e=>{
   e.preventDefault(); const f=e.target, d=Object.fromEntries(new FormData(f)); const u=me(), t=tenantOf(u);
-  if(f.dataset.form==="prod"){
-    const vals={name:d.name.trim(),cat:d.cat.trim(),price:+d.price,cost:+d.cost,stock:+d.stock};
-    if(isRetail(t)){ vals.sku=(d.sku||"").trim()||undefined; vals.exp=d.exp?new Date(d.exp+"T12:00:00").getTime():undefined; vals.whole=(+d.wmin>1&&+d.wprice>0)?{min:+d.wmin,price:+d.wprice}:undefined;
-      if(vals.sku && db.products.some(p=>p.tenantId===t.id&&p.sku===vals.sku&&p.id!==f.dataset.id)){ toast("Barcode sudah dipakai produk lain"); return; } }
-    if(f.dataset.id) Object.assign(db.products.find(p=>p.id===f.dataset.id),vals); else db.products.push({id:uid("p"),tenantId:t.id,...vals});
-    save(); closeModal(); toast("Produk disimpan");
-  }
-  if(f.dataset.form==="staff"){
-    if(db.users.some(x=>x.email.toLowerCase()===d.email.toLowerCase())){ toast("Email sudah dipakai akun lain"); return; }
-    db.users.push({id:uid("u"),name:d.name.trim(),email:d.email.trim(),role:d.role,tenantId:t.id}); save(); closeModal(); toast(d.name+" ditambahkan sebagai "+ROLE[d.role]);
-  }
-  if(f.dataset.form==="signup"){
-    if(db.users.some(x=>x.email.toLowerCase()===d.email.toLowerCase())){ toast("Email sudah terdaftar"); return; }
-    const tid=uid("t"); db.tenants.push({id:tid,name:d.name.trim(),type:d.type,plan:d.plan,status:"aktif",tax:d.type==="F&B"?10:0,joined:Date.now(),city:d.city.trim()});
-    const oid=uid("u"); db.users.push({id:oid,name:d.owner.trim(),email:d.email.trim(),role:"owner",tenantId:tid});
-    db.products.push({id:uid("p"),tenantId:tid,name:"Produk Contoh",cat:"Umum",price:10000,cost:6000,stock:50});
-    save(); ui.modal=null;
-    if(u && u.role==="superadmin"){ render(); toast(d.name+" terdaftar"); }
-    else { ui.userId=oid; ui.view="dash"; render(); toast("Selamat datang, "+d.owner); }
-  }
+  const btn=f.querySelector('[type="submit"]'); if(btn) btn.disabled=true;
+  try{ switch(f.dataset.form){
+    case "login": await api("POST","login",{email:d.email,password:d.password}); ui.view=null; await boot(); break;
+    case "signup": await api("POST","signup",{name:d.name,business:d.business,type:d.type,city:d.city,email:d.email,password:d.password}); history.replaceState(null,"",location.pathname); ui.view="dash"; await boot(); toast("Selamat datang! Masa coba "+TRIAL_DAYS+" hari dimulai."); break;
+    case "setup": if(d.password!==d.password2){ toast("Kedua kata sandi tidak sama"); break; } await api("POST","setup-owner",{name:d.name,email:d.email,password:d.password}); history.replaceState(null,"",location.pathname); ui.view=null; await boot(); toast("Akun Pemilik Aplikasi aktif"); break;
+    case "prod": {
+      const vals={name:d.name.trim(),cat:d.cat.trim(),price:+d.price,cost:+d.cost,stock:+d.stock};
+      if(isRetail(t)){ vals.sku=(d.sku||"").trim()||undefined; vals.exp=d.exp?new Date(d.exp+"T12:00:00").getTime():undefined; vals.whole=(+d.wmin>1&&+d.wprice>0)?{min:+d.wmin,price:+d.wprice}:undefined;
+        if(vals.sku && db.products.some(p=>p.sku===vals.sku&&p.id!==f.dataset.id)){ toast("Barcode sudah dipakai produk lain"); break; } }
+      const pid=f.dataset.id||uid("p"); const i=db.products.findIndex(p=>p.id===pid);
+      const r=await api("PUT","products/"+encodeURIComponent(pid),{product:Object.assign({},i>=0?db.products[i]:{},vals)});
+      if(i>=0) db.products[i]=r.product; else db.products.push(r.product);
+      closeModal(); toast("Produk disimpan"); break; }
+    case "staff": { const r=await api("POST","staff",{name:d.name,email:d.email,role:d.role,password:d.password}); db.users.push(r.user); closeModal(); toast(d.name+" ditambahkan sebagai "+ROLE[d.role]); break; }
+    case "extend": { const r=await api("POST","admin/tenants/"+encodeURIComponent(f.dataset.id),{action:"extend",plan:d.plan,days:+d.days}); putTenant(r.tenant); closeModal(); toast(r.tenant.name+" aktif sampai "+fmtDate(r.tenant.paidUntil)); break; }
+  } }catch(err){ toast(err.message); if(err.status===401 && session){ session=null; ui.modal=null; render(); } }
+  finally{ if(btn && btn.isConnected) btn.disabled=false; }
 });
 document.addEventListener("keydown", e=>{ if(e.key==="Escape" && ui.modal) closeModal(); if(e.key==="Enter" && e.target.id==="pos-q"){ e.preventDefault(); scan(e.target.value.trim()); } });
 function scan(code){
@@ -714,7 +724,7 @@ function scan(code){
   if(addToCart(p,null)) toast(p.name+" +1");
   render(); const s=root.querySelector("#pos-q"); if(s) s.focus();
 }
-render();
+boot();
 })();
 </script>
 
