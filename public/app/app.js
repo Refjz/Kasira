@@ -160,7 +160,7 @@ views.account = u => {
       <div class="field" style="flex:1"><label for="prp">Kertas</label><select class="input" id="prp" name="paper"><option value="58" ${+pp.paper === 58 ? "selected" : ""}>58 mm</option><option value="80" ${+pp.paper === 80 ? "selected" : ""}>80 mm</option></select></div></div>
     <label class="row" style="gap:.35rem"><input type="checkbox" name="auto" value="1" ${pp.auto ? "checked" : ""}> Cetak struk otomatis setelah pembayaran</label>
     <div class="row"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" data-a="btpair">Sambungkan printer Bluetooth</button><button class="btn" type="button" data-a="testprint">Cetak tes</button></div>
-    <span class="muted" style="font-size:.8rem">Bluetooth langsung butuh Chrome di Android atau laptop. Di aplikasi Android Zidny, pakai mode RawBT dan pasang aplikasi RawBT dari Play Store.</span></form>` : ""}
+    <span class="muted" style="font-size:.8rem">Bluetooth langsung jalan di aplikasi Android Zidny POS dan di Chrome (Android atau laptop). Untuk printer Bluetooth klasik yang tidak terdeteksi, pakai mode RawBT dan pasang aplikasi RawBT dari Play Store.</span></form>` : ""}
   ${themePanel()}
   ${outboxPanel()}`;
 };
