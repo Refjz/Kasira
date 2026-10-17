@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="id">
+<head>
+<script src="theme.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kebijakan Privasi Zidny POS</title>
+<meta name="description" content="Kebijakan privasi aplikasi kasir Zidny POS: data yang dikumpulkan, cara dipakai, dan cara menghapusnya.">
+<style>
+:root{
+  --bg:#F2F5F3; --surface:#FFFFFF; --surface-2:#E6EDE9; --ink:#12201A; --muted:#566760; --line:#D3DCD7;
+  --accent:#0C7A62; --accent-ink:#FFFFFF; --accent-soft:#DCEFE8; --gold:#B87D06; --gold-soft:#FBEFD2;
+  --paper:#FFFFFF; --paper-ink:#1B1F1D; --band:#0B3B30; --band-ink:#E6F3EE; --band-muted:#9CC2B5;
+  --f-display:"Bricolage Grotesque", "Segoe UI", system-ui, sans-serif;
+  --f-body:"Figtree", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0D1311; --surface:#151E1A; --surface-2:#1C2823; --ink:#E3ECE7; --muted:#93A49B; --line:#26342E;
+  --accent:#38C29D; --accent-ink:#05251C; --accent-soft:#143A2F; --gold:#EDB743; --gold-soft:#3A2F12;
+  --paper:#F4F2EC; --paper-ink:#1B1F1D; --band:#0F2A23; --band-ink:#E3F1EB; --band-muted:#8DB6A8; color-scheme:dark;}}
+:root[data-theme="dark"]{
+  --bg:#0D1311; --surface:#151E1A; --surface-2:#1C2823; --ink:#E3ECE7; --muted:#93A49B; --line:#26342E;
+  --accent:#38C29D; --accent-ink:#05251C; --accent-soft:#143A2F; --gold:#EDB743; --gold-soft:#3A2F12;
+  --paper:#F4F2EC; --paper-ink:#1B1F1D; --band:#0F2A23; --band-ink:#E3F1EB; --band-muted:#8DB6A8; color-scheme:dark;}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.7;margin:0}
+main{max-width:760px;margin:0 auto;padding:2.5rem 16px 4rem}
+h1,h2{font-family:var(--f-display);line-height:1.2}
+h1{font-size:clamp(1.8rem,5vw,2.4rem);margin:.4rem 0 .2rem}
+h2{font-size:1.25rem;margin:2.2rem 0 .5rem}
+a{color:var(--accent)}
+.muted{color:var(--muted)}
+ul{padding-left:1.2rem}
+li{margin:.3rem 0}
+.top{font-weight:700;text-decoration:none}
+</style>
+</head>
+<body>
+<main>
+<a class="top" href="./">← Zidny POS</a>
+<h1>Kebijakan Privasi</h1>
+<p class="muted">Berlaku sejak 17 Oktober 2026</p>
+
+<p>Zidny POS adalah aplikasi kasir untuk usaha kecil dan menengah, tersedia di web dan Android, dikembangkan oleh ZidnySoft. Kebijakan ini menjelaskan data apa yang kami kumpulkan, untuk apa, dengan siapa dibagikan, dan bagaimana kamu bisa menghapusnya.</p>
+
+<h2>Data yang kami kumpulkan</h2>
+<ul>
+<li><b>Data akun:</b> nama, alamat email, dan kata sandi pemilik usaha dan staf. Kata sandi dan PIN manajer disimpan dalam bentuk hash, bukan teks asli.</li>
+<li><b>Data usaha:</b> nama usaha, outlet, produk, harga, stok, pemasok, transaksi penjualan, shift kasir, promo, dan pengaturan yang kamu masukkan.</li>
+<li><b>Data pelanggan atau member</b> yang kamu catat, misalnya nama, nomor HP, dan poin. Data ini milik usahamu, dan kami hanya menyimpannya atas namamu.</li>
+<li><b>Data pembayaran langganan:</b> status dan nomor pesanan dari Midtrans. Kami tidak pernah menerima atau menyimpan nomor kartu atau saldo e-wallet.</li>
+<li><b>Data teknis:</b> token sesi login, dan cadangan data di perangkat agar aplikasi tetap jalan saat offline.</li>
+</ul>
+
+<h2>Izin di aplikasi Android</h2>
+<ul>
+<li><b>Kamera:</b> hanya untuk memindai barcode produk. Gambar diproses di perangkat dan tidak disimpan atau dikirim.</li>
+<li><b>Bluetooth:</b> hanya untuk menyambung dan mencetak ke printer struk.</li>
+<li><b>Lokasi:</b> hanya diminta di Android 11 ke bawah, karena sistem mewajibkannya untuk mencari printer Bluetooth. Kami tidak membaca, menyimpan, atau mengirim lokasimu.</li>
+</ul>
+
+<h2>Untuk apa data dipakai</h2>
+<p>Data dipakai untuk menjalankan fitur aplikasi: mencatat penjualan, menghitung stok dan laporan, mengirim email atur ulang kata sandi, dan mengelola langganan. Kami tidak menjual data, tidak memakai iklan, dan tidak memasang pelacak pihak ketiga.</p>
+
+<h2>Pihak yang terlibat</h2>
+<ul>
+<li><b>Cloudflare:</b> hosting situs, server, dan database.</li>
+<li><b>Midtrans:</b> pemrosesan pembayaran langganan, dan QRIS bila usahamu memakainya.</li>
+<li><b>Layanan email:</b> pengiriman email atur ulang kata sandi.</li>
+</ul>
+<p>Pihak-pihak ini hanya menerima data yang dibutuhkan untuk layanannya. Struk yang kamu kirim lewat WhatsApp dibagikan sendiri olehmu melalui aplikasi WhatsApp.</p>
+
+<h2>Keamanan</h2>
+<p>Semua koneksi memakai HTTPS. Data setiap usaha dipisahkan, sehingga hanya bisa diakses oleh akun usaha tersebut sesuai perannya (pemilik, manajer, atau kasir).</p>
+
+<h2>Penyimpanan dan penghapusan data</h2>
+<p>Data disimpan selama akunmu aktif. Pemilik usaha bisa menghapus semua data usaha kapan saja lewat menu Pengaturan, Kosongkan data, dengan verifikasi kata sandi. Untuk menghapus akun beserta seluruh datanya, kirim permintaan dari email akunmu ke email dukungan yang tercantum di halaman Zidny POS di Google Play. Kami memprosesnya paling lambat 30 hari. Cadangan data di perangkat hilang saat kamu keluar dari akun atau menghapus aplikasi.</p>
+
+<h2>Anak-anak</h2>
+<p>Zidny POS ditujukan untuk pelaku usaha dan tidak ditujukan untuk anak di bawah 13 tahun.</p>
+
+<h2>Perubahan kebijakan</h2>
+<p>Kalau kebijakan ini berubah, versi terbaru dan tanggal berlakunya akan selalu ada di halaman ini.</p>
+
+<h2>Kontak</h2>
+<p>Pertanyaan tentang privasi bisa dikirim ke email dukungan ZidnySoft yang tercantum di halaman Zidny POS di Google Play.</p>
+</main>
+</body>
+</html>
