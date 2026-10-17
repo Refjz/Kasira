@@ -1,4 +1,4 @@
-# Kasira POS
+# Kasvara POS
 
 Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket dan F&B, dan tetap bisa berjualan saat internet putus.
 

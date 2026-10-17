@@ -1,4 +1,4 @@
-# Deploy Kasira POS ke Cloudflare Pages (situs + API + database D1).
+# Deploy Kasvara POS ke Cloudflare Pages (situs + API + database D1).
 # Jalankan dari folder mana saja:  powershell -ExecutionPolicy Bypass -File <path>\deploy.ps1
 # Aman dijalankan berulang: skema memakai CREATE IF NOT EXISTS.
 param([string]$OwnerEmail = "")

@@ -1,4 +1,4 @@
-# Build aplikasi Android Kasira POS (APK + AAB bertanda tangan) dengan tampilan terpasang di dalam aplikasi.
+# Build aplikasi Android Kasvara POS (APK + AAB bertanda tangan) dengan tampilan terpasang di dalam aplikasi.
 # Jalankan:  powershell -ExecutionPolicy Bypass -File <path>\build-android.ps1 -VersionCode 3
 # Butuh env UPLOAD_KEYSTORE_PATH, UPLOAD_KEYSTORE_PASSWORD, UPLOAD_KEY_PASSWORD (opsional UPLOAD_KEY_ALIAS).
 param(

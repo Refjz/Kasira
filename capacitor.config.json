@@ -1,6 +1,6 @@
 {
   "appId": "com.kasira.pos",
-  "appName": "Kasira POS",
+  "appName": "Kasvara POS",
   "webDir": "android-web",
   "server": {
     "androidScheme": "https"

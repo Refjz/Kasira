@@ -2,7 +2,7 @@
   "name": "kasira",
   "version": "0.1.0",
   "private": true,
-  "description": "Kasira POS: situs statis + Pages Functions, dan pembungkus Android (Capacitor)",
+  "description": "Kasvara POS: situs statis + Pages Functions, dan pembungkus Android (Capacitor)",
   "scripts": {
     "dev": "wrangler pages dev --port 8788",
     "db:init": "wrangler d1 execute kasira-db --remote --file schema.sql",
