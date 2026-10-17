@@ -1,11 +1,12 @@
-// Receipt printing: browser print dialog, Bluetooth (BLE ESC/POS via Web Bluetooth), or the RawBT app on Android.
+// Receipt printing: browser print dialog, Bluetooth (BLE ESC/POS via Web Bluetooth, or the native BLE plugin in the Android app), or the RawBT app on Android.
 import { lsGet, lsSet, toast, esc } from "./core.js";
 
 const KEY = "kasira-printer";
 export const printerPrefs = () => ({ mode: "browser", paper: 58, auto: false, ...lsGet(KEY, {}) });
 export const savePrinterPrefs = p => lsSet(KEY, { ...printerPrefs(), ...p });
 export const widthFor = paper => +paper === 80 ? 48 : 32;
-export const hasWebBluetooth = () => !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
+const nativeBle = () => window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform() && window.Capacitor.Plugins && window.Capacitor.Plugins.BluetoothLe;
+export const hasWebBluetooth = () => !!nativeBle() || !!(navigator.bluetooth && navigator.bluetooth.requestDevice);
 
 // ESC/POS bytes for plain text. Non-ASCII characters are replaced so cheap printers do not print garbage.
 function escpos(text, { cut = true } = {}) {
@@ -32,14 +33,45 @@ async function btConnect(force) {
   }
   throw new Error("Printer tidak punya jalur tulis. Coba mode RawBT.");
 }
+// Android app: Web Bluetooth is not available in the WebView, so use the native BLE plugin.
+let nb = null; // { deviceId, service, characteristic, noResp }
+const toHex = b => Array.from(b, x => x.toString(16).padStart(2, "0")).join("");
+async function nbConnect(force) {
+  const B = nativeBle();
+  await B.initialize({ androidNeverForLocation: true });
+  const saved = printerPrefs();
+  if (nb && !force) { await B.connect({ deviceId: nb.deviceId }).catch(() => {}); return nb; }
+  const dev = !force && saved.btId ? { deviceId: saved.btId, name: saved.btName } : await B.requestDevice({ optionalServices: PRINTER_SERVICES });
+  await B.connect({ deviceId: dev.deviceId });
+  const { services } = await B.getServices({ deviceId: dev.deviceId });
+  for (const s of services) for (const c of s.characteristics) {
+    if (c.properties.write || c.properties.writeWithoutResponse) {
+      nb = { deviceId: dev.deviceId, service: s.uuid, characteristic: c.uuid, noResp: !c.properties.write };
+      savePrinterPrefs({ btName: dev.name || "Printer", btId: dev.deviceId });
+      return nb;
+    }
+  }
+  throw new Error("Printer tidak punya jalur tulis. Coba mode RawBT.");
+}
+async function nbWrite(bytes) {
+  const B = nativeBle(), c = await nbConnect();
+  for (let i = 0; i < bytes.length; i += 100) {
+    const req = { deviceId: c.deviceId, service: c.service, characteristic: c.characteristic, value: toHex(bytes.slice(i, i + 100)) };
+    if (c.noResp) await B.writeWithoutResponse(req); else await B.write(req);
+  }
+}
 async function btWrite(bytes) {
+  if (nativeBle()) return nbWrite(bytes);
   const { characteristic: ch } = await btConnect();
   for (let i = 0; i < bytes.length; i += 180) {
     const part = bytes.slice(i, i + 180);
     if (ch.properties.writeWithoutResponse && ch.writeValueWithoutResponse) await ch.writeValueWithoutResponse(part); else await ch.writeValue(part);
   }
 }
-export async function pairBluetooth() { await btConnect(true); toast("Printer " + (bt.device.name || "") + " tersambung"); }
+export async function pairBluetooth() {
+  if (nativeBle()) { const c = await nbConnect(true); toast("Printer " + (printerPrefs().btName || "") + " tersambung"); return c; }
+  await btConnect(true); toast("Printer " + (bt.device.name || "") + " tersambung");
+}
 
 function rawbt(bytes) {
   let bin = ""; for (const b of bytes) bin += String.fromCharCode(b);

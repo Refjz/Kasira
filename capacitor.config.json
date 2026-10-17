@@ -7,5 +7,21 @@
   },
   "android": {
     "backgroundColor": "#0C7A62"
+  },
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 3000,
+      "launchAutoHide": true,
+      "backgroundColor": "#0C7A62",
+      "showSpinner": false
+    },
+    "BluetoothLe": {
+      "displayStrings": {
+        "scanning": "Mencari printer…",
+        "cancel": "Batal",
+        "availableDevices": "Printer tersedia",
+        "noDeviceFound": "Printer tidak ditemukan"
+      }
+    }
   }
 }

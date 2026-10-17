@@ -6,3 +6,9 @@ compatibility_date = "2026-10-01"
 binding = "DB"
 database_name = "kasira-db"
 database_id = "b8129ba1-d5ad-40fb-9ea3-ed64f5e1139e"
+
+# Preview deployments (any branch other than main, e.g. https://uji.kasira-c70.pages.dev) use a separate test database.
+[[env.preview.d1_databases]]
+binding = "DB"
+database_name = "kasira-db-test"
+database_id = "ba1a2094-8ec9-4924-9c27-7aa4aa6e951b"

@@ -69,3 +69,9 @@ Setiap unggahan ke Play Console butuh `VERSION_CODE` yang lebih besar dari sebel
 Aplikasi Android memuat tampilan dari dalam APK (folder `android-web/`, dibuat dari `public/app` oleh `scripts/android-web.mjs`), bukan membuka situs di browser. Data tetap lewat API di `https://kasira-c70.pages.dev/api/`; sesi dikirim sebagai header `Authorization: Bearer`, dan server hanya membuka CORS untuk origin aplikasi (`https://localhost`, `capacitor://localhost`).
 
 Build APK + AAB bertanda tangan: `powershell -ExecutionPolicy Bypass -File build-android.ps1 -VersionCode 3` (naikkan setiap unggah ke Play Console). Tampilan baru di situs baru masuk ke aplikasi setelah build ulang, tetapi perubahan API langsung berlaku setelah deploy.
+
+Printer Bluetooth di aplikasi Android memakai plugin BLE native (`@capacitor-community/bluetooth-le`), karena WebView Android tidak punya Web Bluetooth. Printer yang hanya Bluetooth Classic tetap bisa lewat mode RawBT. Status bar dan splash diatur `public/app/native.js`.
+
+## Lingkungan uji
+
+Deploy ke cabang selain `main` (mis. `npx wrangler pages deploy --project-name kasira --branch uji`) memakai database terpisah `kasira-db-test` (`[env.preview]` di `wrangler.toml`), di https://uji.kasira-c70.pages.dev. APK uji: isi env `KASIRA_API=https://uji.kasira-c70.pages.dev` sebelum `npm run android:sync`.

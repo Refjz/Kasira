@@ -271,6 +271,7 @@ if (AppPlugin) AppPlugin.addListener("backButton", async () => {
   if (prev && S.session) { S.ui.view = prev; persist(); render(); window.scrollTo(0, 0); const f = views[prev]; if (f && f.load && !S.offline) await f.load(); return; }
   AppPlugin.minimizeApp();
 });
+if (NATIVE) import("./native.js").catch(() => {});
 if (!NATIVE && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 api("GET", "plans").then(r => { applyPlans(r.plans); if (!S.session) render(); }).catch(() => {});
 if (auth.mode === "reset") { S.booting = false; render(); } else await boot();

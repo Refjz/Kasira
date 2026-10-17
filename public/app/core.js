@@ -76,7 +76,8 @@ export function pricing(input, customer) {
 // Inside the Android app the screens are bundled locally, so the API lives on the public server
 // and the session travels as a bearer token instead of a same-origin cookie.
 export const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
-export const SERVER = NATIVE ? "https://kasira-c70.pages.dev" : location.origin;
+// Test builds point at another server via window.KASIRA_API (set by scripts/android-web.mjs from the KASIRA_API env var).
+export const SERVER = NATIVE ? (window.KASIRA_API || "https://kasira-c70.pages.dev") : location.origin;
 // Links outside the app: the native shell hands these to the system (browser, WhatsApp, RawBT).
 export function openExternal(url) { if (NATIVE) location.href = url; else window.open(url, "_blank", "noopener"); }
 const TOKEN = "kasira-token";
