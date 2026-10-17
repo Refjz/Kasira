@@ -1,4 +1,4 @@
-// Kasvara order pricing. Shared by the browser (cart preview) and the API (authoritative totals),
+// Zidny order pricing. Shared by the browser (cart preview) and the API (authoritative totals),
 // so the cashier screen and the stored transaction always agree on the same rules.
 
 export const lineKey = l => [l.pid, l.unit || "", l.mods ? JSON.stringify(l.mods) : ""].join("|");

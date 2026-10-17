@@ -1,8 +1,8 @@
-# Kasvara POS: Rencana Produk
+# Zidny POS: Rencana Produk
 
 Aplikasi kasir (POS) berbasis web untuk publik, model SaaS multi-tenant seperti Amazstep: satu platform, banyak usaha pelanggan, tiap usaha punya tim sendiri.
 
-> Nama "Kasvara" hanya nama kerja, bisa diganti. Riset web tentang Luna POS dan Amazstep tidak menemukan halaman fitur resmi, jadi perbandingan di bawah disusun dari pengetahuan umum tentang aplikasi kasir di Indonesia (Luna POS, Moka, Majoo, Pawoon) dan perlu dicek ulang.
+> Nama "Zidny" hanya nama kerja, bisa diganti. Riset web tentang Luna POS dan Amazstep tidak menemukan halaman fitur resmi, jadi perbandingan di bawah disusun dari pengetahuan umum tentang aplikasi kasir di Indonesia (Luna POS, Moka, Majoo, Pawoon) dan perlu dicek ulang.
 
 ## 1. Tiga tingkat akun
 

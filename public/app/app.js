@@ -41,7 +41,7 @@ const themePanel = () => `<div class="panel stack"><h2>Tampilan</h2><div class="
 /* ---------- shell ---------- */
 setShell(() => {
   const modal = S.ui.modal ? `<div class="scrim" data-a="scrim"><div class="modal" role="dialog" aria-modal="true">${S.ui.modal()}</div></div>` : "";
-  if (S.booting) return `<div class="login"><p class="muted">Memuat Kasvara…</p></div>`;
+  if (S.booting) return `<div class="login"><p class="muted">Memuat Zidny…</p></div>`;
   const u = me();
   if (!u) return authView() + modal;
   const t = S.tenant, ok = usable(t);
@@ -60,7 +60,7 @@ setShell(() => {
   const switcher = t && ok && isMgr(u) && S.outlets.length > 1 ? `<select class="input" data-ch="outlet" aria-label="Pilih outlet" style="font-weight:600">${S.outlets.map(o => `<option value="${o.id}" ${o.id === S.outlet ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select>` : "";
   return `<div class="app">
     <aside class="side">
-      <div class="brand"><i aria-hidden="true"></i>Kasvara</div>
+      <div class="brand"><i aria-hidden="true"></i>Zidny POS</div>
       ${t ? `<div class="tenant-chip"><div class="label">Usaha</div><div style="font-weight:700">${esc(t.name)}</div><div class="muted" style="font-size:.8rem">${esc(t.type)} · ${t.access === "trial" ? "Coba gratis" : t.access === "paid" ? "Paket " + PLANS[t.plan].name : "Tidak aktif"}</div>${S.outlets.length > 1 && !isMgr(u) ? `<div class="muted" style="font-size:.8rem">${esc(outletName(S.outlet))}</div>` : ""}</div>`
         : `<div class="tenant-chip"><div class="label">Konsol</div><div style="font-weight:700">Pemilik Aplikasi</div><div class="muted" style="font-size:.8rem">${S.admin.tenants.length} usaha terdaftar</div></div>`}
       ${switcher}
@@ -91,7 +91,7 @@ function authView() {
   const tabs = ["login", "signup"].includes(m) ? `<div class="seg" role="group" aria-label="Masuk atau daftar"><button data-a="auth" data-v="login" aria-pressed="${m === "login"}">Masuk</button><button data-a="auth" data-v="signup" aria-pressed="${m === "signup"}">Daftar gratis</button></div>` : "";
   const back = `<p class="muted" style="font-size:.88rem"><button class="linkish" data-a="auth" data-v="login">Kembali ke halaman masuk</button></p>`;
   const F = {
-    login: `<div><h2>Masuk ke Kasvara</h2><p class="muted" style="font-size:.9rem">Untuk pemilik usaha, manajer, dan kasir.</p></div>
+    login: `<div><h2>Masuk ke Zidny POS</h2><p class="muted" style="font-size:.9rem">Untuk pemilik usaha, manajer, dan kasir.</p></div>
       <form class="stack" data-form="login">
         <div class="field"><label for="le">Email</label><input class="input" id="le" name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label for="lp">Kata sandi</label><input class="input" id="lp" name="password" type="password" autocomplete="current-password" required></div>
@@ -108,7 +108,7 @@ function authView() {
         <div class="field"><label for="sp1">Kata sandi</label><input class="input" id="sp1" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="muted" style="font-size:.8rem">Minimal 8 karakter.</span></div>
         <button class="btn primary" type="submit">Mulai coba gratis</button></form>
       <p class="muted" style="font-size:.88rem">Sudah punya akun? <button class="linkish" data-a="auth" data-v="login">Masuk</button></p>`,
-    forgot: auth.sent ? `<div><h2>Cek email kamu</h2><p class="muted" style="font-size:.92rem">${auth.sent.mail ? `Kalau <b>${esc(auth.sent.email)}</b> terdaftar, tautan untuk membuat kata sandi baru sudah dikirim. Tautan berlaku 2 jam. Cek juga folder spam.` : `Pengiriman email belum diaktifkan di Kasvara. Hubungi pemilik usahamu (untuk staf) atau admin Kasvara via WhatsApp (untuk pemilik usaha) agar dibuatkan tautan atur ulang kata sandi.`}</p></div>${back}`
+    forgot: auth.sent ? `<div><h2>Cek email kamu</h2><p class="muted" style="font-size:.92rem">${auth.sent.mail ? `Kalau <b>${esc(auth.sent.email)}</b> terdaftar, tautan untuk membuat kata sandi baru sudah dikirim. Tautan berlaku 2 jam. Cek juga folder spam.` : `Pengiriman email belum diaktifkan di Zidny. Hubungi pemilik usahamu (untuk staf) atau admin Zidny via WhatsApp (untuk pemilik usaha) agar dibuatkan tautan atur ulang kata sandi.`}</p></div>${back}`
       : `<div><h2>Lupa kata sandi</h2><p class="muted" style="font-size:.9rem">Masukkan email akunmu. Kami kirim tautan untuk membuat kata sandi baru. Staf juga bisa minta pemilik usaha mengganti kata sandinya di menu Staf.</p></div>
       <form class="stack" data-form="forgot"><div class="field"><label for="fe">Email</label><input class="input" id="fe" name="email" type="email" autocomplete="username" required></div><button class="btn primary" type="submit">Kirim tautan</button></form>${back}`,
     reset: `<div><h2>Buat kata sandi baru</h2><p class="muted" style="font-size:.9rem">Setelah disimpan, kamu langsung masuk dan semua perangkat lain keluar otomatis.</p></div>
@@ -124,7 +124,7 @@ function authView() {
   };
   return `<div class="login"><div class="login-card">
     <div class="login-hero">
-      <div class="stack">${NATIVE ? "" : `<a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasvara</a>`}<h1>Kasvara</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
+      <div class="stack">${NATIVE ? "" : `<a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Zidny</a>`}<h1>Zidny POS</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
       <ul><li>Meja, open bill, split bill, layar dapur, resep bahan baku</li><li>Scan barcode pakai kamera HP, satuan pcs/pak/dus, harga grosir</li><li>QRIS otomatis, struk Bluetooth & WhatsApp</li><li>Shift kasir, refund dengan PIN manajer</li><li>Member, poin, promo, voucher, multi-outlet</li><li>Laporan lengkap & ekspor Excel</li><li>Gratis ${TRIAL_DAYS} hari, lalu ${rp(PLANS.bulanan.price)}/bulan atau ${rp(PLANS.tahunan.price)}/tahun</li></ul>
     </div>
     <div class="login-side"><div class="spread">${tabs || "<span></span>"}<button class="btn sm theme-btn" data-a="theme" aria-label="Ganti tema (sekarang ${themeLabel()})" title="Tema: ${themeLabel()}">${themeIcon()}</button></div>${F[m] || F.login}</div>
@@ -160,7 +160,7 @@ views.account = u => {
       <div class="field" style="flex:1"><label for="prp">Kertas</label><select class="input" id="prp" name="paper"><option value="58" ${+pp.paper === 58 ? "selected" : ""}>58 mm</option><option value="80" ${+pp.paper === 80 ? "selected" : ""}>80 mm</option></select></div></div>
     <label class="row" style="gap:.35rem"><input type="checkbox" name="auto" value="1" ${pp.auto ? "checked" : ""}> Cetak struk otomatis setelah pembayaran</label>
     <div class="row"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" data-a="btpair">Sambungkan printer Bluetooth</button><button class="btn" type="button" data-a="testprint">Cetak tes</button></div>
-    <span class="muted" style="font-size:.8rem">Bluetooth langsung butuh Chrome di Android atau laptop. Di aplikasi Android Kasvara, pakai mode RawBT dan pasang aplikasi RawBT dari Play Store.</span></form>` : ""}
+    <span class="muted" style="font-size:.8rem">Bluetooth langsung butuh Chrome di Android atau laptop. Di aplikasi Android Zidny, pakai mode RawBT dan pasang aplikasi RawBT dari Play Store.</span></form>` : ""}
   ${themePanel()}
   ${outboxPanel()}`;
 };
@@ -168,7 +168,7 @@ forms.chpass = async (d, f) => { if (d.password !== d.password2) { toast("Kedua 
 forms.setpin = async (d, f) => { await api("POST", "pin", { pin: d.pin, password: d.password }); const s = S.staff.find(s => s.id === me().id); if (s) s.hasPin = true; f.reset(); render(); toast("PIN tersimpan"); };
 forms.printer = d => { savePrinterPrefs({ mode: d.mode, paper: +d.paper, auto: !!d.auto }); render(); toast("Pengaturan printer disimpan"); };
 actions.btpair = async () => { if (!hasWebBluetooth()) { toast("Browser ini tidak mendukung Bluetooth. Pakai Chrome atau mode RawBT."); return; } await pairBluetooth(); savePrinterPrefs({ mode: "bluetooth" }); render(); };
-actions.testprint = () => printText("KASVARA\nTes printer\n" + new Date().toLocaleString("id-ID") + "\n--------------------------------\nKalau tulisan ini rapi,\nprinter siap dipakai.\n");
+actions.testprint = () => printText("ZIDNY POS\nTes printer\n" + new Date().toLocaleString("id-ID") + "\n--------------------------------\nKalau tulisan ini rapi,\nprinter siap dipakai.\n");
 
 /* ---------- billing ---------- */
 views.billing = (u, t) => {
@@ -178,7 +178,7 @@ views.billing = (u, t) => {
   return `<div><h1>Langganan</h1><p class="muted">${status}</p></div>
   ${pr ? `<div class="panel stack" style="border-color:var(--gold)"><div class="spread"><h2>Menunggu pembayaran</h2><span class="pill gold">diproses</span></div><p>Paket <b>${PLANS[pr.plan].name}</b>, 1 ${PLANS[pr.plan].per}, <b class="num">${rp(pr.amount)}</b>. Diajukan ${fmtDate(pr.at)}.</p>
     ${pr.redirect ? `<p class="muted" style="font-size:.9rem">Bayar lewat QRIS, e-wallet, virtual account, atau kartu. Langganan aktif otomatis begitu pembayaran berhasil.</p><div class="row"><a class="btn primary" href="${esc(pr.redirect)}" target="_blank" rel="noopener">Lanjutkan pembayaran</a><button class="btn" data-a="paycheck">Saya sudah bayar, cek status</button></div>`
-      : `<p class="muted" style="font-size:.9rem">Tim Kasvara akan mengirim instruksi pembayaran ke <b>${esc(u.email)}</b>. Langganan aktif begitu pembayaran dikonfirmasi.</p>`}</div>` : ""}
+      : `<p class="muted" style="font-size:.9rem">Tim Zidny akan mengirim instruksi pembayaran ke <b>${esc(u.email)}</b>. Langganan aktif begitu pembayaran dikonfirmasi.</p>`}</div>` : ""}
   <div class="plans">${Object.entries(PLANS).map(([k, p]) => { const cur = t.access === "paid" && t.plan === k; return `<div class="panel plan${cur ? " current" : ""}"><div class="spread"><h2>${p.name}</h2>${cur ? '<span class="pill ok">aktif</span>' : ""}</div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /${p.per}</span>${p.note ? ` <span class="pill ok">${p.note}</span>` : ""}</div><ul>${p.feat.map(f => `<li>${f}</li>`).join("")}</ul><button class="btn ${k === "tahunan" ? "primary" : ""}" data-a="payplan" data-v="${k}">${cur ? "Perpanjang" : "Bayar paket " + p.name}</button></div>`; }).join("")}</div>`;
 };
 actions.payplan = async el => {

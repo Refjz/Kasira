@@ -1,4 +1,4 @@
-// Kasvara app core: state, API client, offline cache + outbox, shared helpers and the render loop.
+// Zidny app core: state, API client, offline cache + outbox, shared helpers and the render loop.
 import { priceOrder } from "./pricing.js";
 
 export const DAY = 86400000;

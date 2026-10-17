@@ -1,4 +1,4 @@
-// Kasvara POS API: Cloudflare Pages Function backed by D1 (binding DB).
+// Zidny POS API: Cloudflare Pages Function backed by D1 (binding DB).
 // Auth uses PBKDF2 password hashes and an HttpOnly session cookie.
 // Env: DB (D1), OWNER_EMAIL (secret; the only email that may claim the app-owner account),
 // optional MIDTRANS_SERVER_KEY + MIDTRANS_PRODUCTION (subscription checkout),
@@ -332,7 +332,7 @@ on("POST", "password/forgot", async ({ env, request, body }) => {
     const link = await makeResetLink(env, request, u.id, 2);
     await fetch("https://api.resend.com/emails", {
       method: "POST", headers: { authorization: "Bearer " + env.RESEND_API_KEY, "content-type": "application/json" },
-      body: JSON.stringify({ from: env.MAIL_FROM, to: email, subject: "Atur ulang kata sandi Kasvara",
+      body: JSON.stringify({ from: env.MAIL_FROM, to: email, subject: "Atur ulang kata sandi Zidny",
         html: `<p>Halo ${u.name.replace(/[<>&]/g, "")},</p><p>Klik tautan ini untuk membuat kata sandi baru (berlaku 2 jam):</p><p><a href="${link}">${link}</a></p><p>Abaikan email ini kalau kamu tidak memintanya.</p>` })
     }).catch(() => {});
   }
@@ -1088,7 +1088,7 @@ on("POST", "billing/request", async ({ env, sess, body }) => {
     const id = "SUB-" + t.id.slice(1, 9) + "-" + Date.now().toString(36);
     const owner = sess.user;
     const r = await fetch(snapBase(prod) + "/snap/v1/transactions", { method: "POST", headers: { accept: "application/json", "content-type": "application/json", authorization: mtAuth(env.MIDTRANS_SERVER_KEY) },
-      body: JSON.stringify({ transaction_details: { order_id: id, gross_amount: P[body.plan].price }, item_details: [{ id: body.plan, price: P[body.plan].price, quantity: 1, name: "Kasvara " + P[body.plan].name }], customer_details: { first_name: owner.name, email: owner.email } }) });
+      body: JSON.stringify({ transaction_details: { order_id: id, gross_amount: P[body.plan].price }, item_details: [{ id: body.plan, price: P[body.plan].price, quantity: 1, name: "Zidny " + P[body.plan].name }], customer_details: { first_name: owner.name, email: owner.email } }) });
     const d = await r.json().catch(() => ({}));
     if (!d.redirect_url) fail(502, "Gagal membuat tagihan: " + (d.error_messages || [r.status]).join(", "));
     await env.DB.prepare("INSERT INTO payments (id, tenant_id, kind, amount, status, created, data) VALUES (?, ?, 'sub', ?, 'pending', ?, ?)").bind(id, t.id, P[body.plan].price, Date.now(), JSON.stringify({ plan: body.plan, redirect: d.redirect_url })).run();
