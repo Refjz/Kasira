@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="id">
 <head>
+<script src="theme.js"></script>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>[hidden]{display:none!important}</style>
@@ -173,7 +174,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap}
 <header class="nav">
   <div class="wrap">
     <a class="logo" href="#top"><i aria-hidden="true"></i>Kasira</a>
-    <nav aria-label="Navigasi utama"><a href="#mode">Fitur</a><a href="#peran">Tim</a><a href="#harga">Harga</a><a href="#faq">FAQ</a><a href="./app/">Masuk</a></nav>
+    <nav aria-label="Navigasi utama"><a href="#mode">Fitur</a><a href="#peran">Tim</a><a href="#harga">Harga</a><a href="#faq">FAQ</a><a href="./app/">Masuk</a><button type="button" id="themeBtn" aria-label="Ganti tema" style="border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;padding:.25rem .55rem;font:inherit;cursor:pointer"></button></nav>
     <a class="btn primary" href="./app/#daftar">Coba gratis</a>
   </div>
 </header>
@@ -338,5 +339,10 @@ fetch("/api/plans").then(r => r.json()).then(({ plans }) => {
   const saved = plans.bulanan.price * 12 - plans.tahunan.price, note = document.querySelector("[data-plan-note]");
   if (note) { if (saved >= plans.bulanan.price) note.textContent = "Hemat " + Math.floor(saved / plans.bulanan.price) + " bulan"; else note.remove(); }
 }).catch(() => {});
+</script>
+<script>
+(function () { var b = document.getElementById("themeBtn"); if (!b || !window.kasiraTheme) return;
+  var show = function () { b.textContent = kasiraTheme.icon(); b.title = "Tema: " + kasiraTheme.label(); b.setAttribute("aria-label", "Ganti tema (sekarang " + kasiraTheme.label() + ")"); };
+  show(); b.addEventListener("click", function () { kasiraTheme.next(); show(); }); })();
 </script>
 </html>

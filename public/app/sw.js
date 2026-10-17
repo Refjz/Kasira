@@ -1,6 +1,6 @@
 // Offline shell: network first for app files (so updates arrive right away), cache as fallback. API calls are never cached.
-const CACHE = "kasira-shell-v3";
-const SHELL = ["./", "index.html", "app.js", "core.js", "pricing.js", "pos.js", "manage.js", "reports.js", "print.js", "scan.js", "manifest.webmanifest", "icon-512.png", "vendor/qrcode.js", "vendor/zxing.min.js", "vendor/xlsx.mini.min.js"];
+const CACHE = "kasira-shell-v4";
+const SHELL = ["./", "index.html", "app.js", "core.js", "pricing.js", "pos.js", "manage.js", "reports.js", "print.js", "scan.js", "manifest.webmanifest", "icon-512.png", "../theme.js", "vendor/qrcode.js", "vendor/zxing.min.js", "vendor/xlsx.mini.min.js"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
 self.addEventListener("fetch", e => {

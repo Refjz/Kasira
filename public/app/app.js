@@ -29,6 +29,13 @@ actions.reload = () => boot({ quiet: true });
 actions.impersonate = async el => { el.disabled = true; await api("POST", "admin/impersonate", { tenantId: el.dataset.id }); S.ui.view = null; resetPos(); await boot(); };
 actions.unimpersonate = async () => { await api("POST", "admin/unimpersonate"); S.ui.view = "tenants"; resetPos(); await boot(); };
 
+/* ---------- theme ---------- */
+const TH = () => window.kasiraTheme;
+const themeLabel = () => TH() ? TH().label() : "Otomatis", themeIcon = () => TH() ? TH().icon() : "◐";
+actions.theme = () => { if (!TH()) return; const v = TH().next(); render(); toast("Tema: " + TH().label(v)); };
+actions.themeset = el => { if (TH()) TH().set(el.dataset.v); render(); };
+const themePanel = () => `<div class="panel stack"><h2>Tampilan</h2><div class="seg" role="group" aria-label="Tema">${[["light", "☀ Terang"], ["dark", "☾ Gelap"], ["auto", "◐ Otomatis"]].map(([k, l]) => `<button data-a="themeset" data-v="${k}" aria-pressed="${(TH() ? TH().get() : "auto") === k}">${l}</button>`).join("")}</div><span class="muted" style="font-size:.8rem">Otomatis mengikuti pengaturan gelap/terang perangkat. Tersimpan di perangkat ini.</span></div>`;
+
 /* ---------- shell ---------- */
 setShell(() => {
   const modal = S.ui.modal ? `<div class="scrim" data-a="scrim"><div class="modal" role="dialog" aria-modal="true">${S.ui.modal()}</div></div>` : "";
@@ -60,7 +67,7 @@ setShell(() => {
         ${S.offline ? `<span class="pill bad">offline</span>` : ""}
         ${S.session.impersonating ? `<button class="btn sm" data-a="unimpersonate">Kembali ke konsol</button>` : ""}
         <div class="row who"><span class="avatar">${initials(u.name)}</span><div><div style="font-weight:600;font-size:.9rem">${esc(u.name)}</div><div class="muted" style="font-size:.78rem">${ROLE[u.role]}</div></div></div>
-        <button class="btn sm" data-a="logout">Keluar</button>
+        <div class="row" style="gap:.4rem;flex-wrap:nowrap"><button class="btn sm theme-btn" data-a="theme" title="Tema: ${themeLabel()}" aria-label="Ganti tema (sekarang ${themeLabel()})">${themeIcon()}</button><button class="btn sm" data-a="logout">Keluar</button></div>
       </div>
     </aside>
     <main class="main"><div class="main-inner">${bar}${body}</div></main>
@@ -118,7 +125,7 @@ function authView() {
       <div class="stack"><a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasira</a><h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
       <ul><li>Meja, open bill, split bill, layar dapur, resep bahan baku</li><li>Scan barcode pakai kamera HP, satuan pcs/pak/dus, harga grosir</li><li>QRIS otomatis, struk Bluetooth & WhatsApp</li><li>Shift kasir, refund dengan PIN manajer</li><li>Member, poin, promo, voucher, multi-outlet</li><li>Laporan lengkap & ekspor Excel</li><li>Gratis ${TRIAL_DAYS} hari, lalu ${rp(PLANS.bulanan.price)}/bulan atau ${rp(PLANS.tahunan.price)}/tahun</li></ul>
     </div>
-    <div class="login-side">${tabs}${F[m] || F.login}</div>
+    <div class="login-side"><div class="spread">${tabs || "<span></span>"}<button class="btn sm theme-btn" data-a="theme" aria-label="Ganti tema (sekarang ${themeLabel()})" title="Tema: ${themeLabel()}">${themeIcon()}</button></div>${F[m] || F.login}</div>
   </div></div>`;
 }
 forms.login = async d => { await api("POST", "login", { email: d.email, password: d.password }); S.ui.view = null; await boot(); };
@@ -152,6 +159,7 @@ views.account = u => {
     <label class="row" style="gap:.35rem"><input type="checkbox" name="auto" value="1" ${pp.auto ? "checked" : ""}> Cetak struk otomatis setelah pembayaran</label>
     <div class="row"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" data-a="btpair">Sambungkan printer Bluetooth</button><button class="btn" type="button" data-a="testprint">Cetak tes</button></div>
     <span class="muted" style="font-size:.8rem">Bluetooth langsung butuh Chrome di Android atau laptop. Di aplikasi Android Kasira, pakai mode RawBT dan pasang aplikasi RawBT dari Play Store.</span></form>` : ""}
+  ${themePanel()}
   ${outboxPanel()}`;
 };
 forms.chpass = async (d, f) => { if (d.password !== d.password2) { toast("Kedua kata sandi baru tidak sama"); return; } await api("POST", "password/change", { old: d.old, password: d.password }); f.reset(); toast("Kata sandi diganti"); };
