@@ -84,7 +84,8 @@ async function startSession(env, userId) {
 }
 
 async function loadSession(request, env) {
-  const m = (request.headers.get("cookie") || "").match(/(?:^|;\s*)ks=([0-9a-f]{64})/);
+  // The Android app runs from its own local origin, so it sends the token as a bearer header instead of a cookie.
+  const m = (request.headers.get("cookie") || "").match(/(?:^|;\s*)ks=([0-9a-f]{64})/) || (request.headers.get("authorization") || "").match(/^Bearer ([0-9a-f]{64})$/);
   if (!m) return null;
   const hash = await sha256(m[1]);
   const s = await env.DB.prepare("SELECT * FROM sessions WHERE token_hash = ?").bind(hash).first();
@@ -1181,7 +1182,30 @@ on("POST", "admin/unimpersonate", async ({ env, sess }) => {
   return json({ ok: true });
 });
 
-export async function onRequest({ request, env, params }) {
+// Origins of the bundled Android app (Capacitor). Only these get CORS, and never with credentials.
+const APP_ORIGINS = ["https://localhost", "capacitor://localhost", "http://localhost"];
+function withCors(request, res) {
+  const origin = request.headers.get("origin");
+  if (!APP_ORIGINS.includes(origin)) return res;
+  const h = new Headers(res.headers);
+  h.set("access-control-allow-origin", origin);
+  h.set("access-control-allow-methods", "GET, POST, PUT, DELETE, OPTIONS");
+  h.set("access-control-allow-headers", "content-type, authorization");
+  h.set("access-control-expose-headers", "x-kasira-token");
+  h.set("access-control-max-age", "86400");
+  h.append("vary", "origin");
+  // Mirror the session cookie as a header the app can read and keep.
+  const m = (h.get("set-cookie") || "").match(/ks=([0-9a-f]{64})?;/);
+  if (m) { h.set("x-kasira-token", m[1] || "-"); h.delete("set-cookie"); }
+  return new Response(res.body, { status: res.status, headers: h });
+}
+
+export async function onRequest(ctx) {
+  if (ctx.request.method === "OPTIONS") return withCors(ctx.request, new Response(null, { status: 204 }));
+  return withCors(ctx.request, await handle(ctx));
+}
+
+async function handle({ request, env, params }) {
   try {
     const path = (params.path || []).join("/");
     const route = routes.map(r => ({ r, m: path.match(r.re) })).find(x => x.m && x.r.method === request.method);

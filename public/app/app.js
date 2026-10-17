@@ -1,6 +1,6 @@
 // App shell: menu per role, outlet switcher, offline banner, sign-in flows, account, billing and the app owner console.
 import { S, views, actions, forms, changes, api, toast, render, openModal, closeModal, setShell, boot, loadData, setOutlet, applyPlans, esc, rp, initials, fmtDate, daysTo,
-  isFnb, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey } from "./core.js";
+  isFnb, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey, NATIVE } from "./core.js";
 import { resetPos } from "./pos.js";
 import { barChart } from "./manage.js";
 import { outboxPanel } from "./reports.js";
@@ -19,7 +19,9 @@ const flat = m => m.flatMap(g => g[1]);
 try { S.ui.view = sessionStorage.getItem("kasira-view") || null; } catch (e) {}
 const persist = () => { try { sessionStorage.setItem("kasira-view", S.ui.view || ""); } catch (e) {} };
 
+const backStack = [];
 actions.nav = async el => {
+  if (S.ui.view && S.ui.view !== el.dataset.v) { backStack.push(S.ui.view); if (backStack.length > 20) backStack.shift(); }
   S.ui.view = el.dataset.v; S.ui.modal = null; persist(); render(); window.scrollTo(0, 0);
   const f = views[S.ui.view]; if (f && f.load && !S.offline) await f.load();
 };
@@ -122,7 +124,7 @@ function authView() {
   };
   return `<div class="login"><div class="login-card">
     <div class="login-hero">
-      <div class="stack"><a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasira</a><h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
+      <div class="stack">${NATIVE ? "" : `<a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Kasira</a>`}<h1>Kasira</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
       <ul><li>Meja, open bill, split bill, layar dapur, resep bahan baku</li><li>Scan barcode pakai kamera HP, satuan pcs/pak/dus, harga grosir</li><li>QRIS otomatis, struk Bluetooth & WhatsApp</li><li>Shift kasir, refund dengan PIN manajer</li><li>Member, poin, promo, voucher, multi-outlet</li><li>Laporan lengkap & ekspor Excel</li><li>Gratis ${TRIAL_DAYS} hari, lalu ${rp(PLANS.bulanan.price)}/bulan atau ${rp(PLANS.tahunan.price)}/tahun</li></ul>
     </div>
     <div class="login-side"><div class="spread">${tabs || "<span></span>"}<button class="btn sm theme-btn" data-a="theme" aria-label="Ganti tema (sekarang ${themeLabel()})" title="Tema: ${themeLabel()}">${themeIcon()}</button></div>${F[m] || F.login}</div>
@@ -181,7 +183,7 @@ views.billing = (u, t) => {
 };
 actions.payplan = async el => {
   el.disabled = true;
-  const w = window.open("", "_blank");
+  const w = NATIVE ? null : window.open("", "_blank");
   const r = await api("POST", "billing/request", { plan: el.dataset.v });
   S.tenant.payRequest = r.payRequest; render();
   if (r.redirect) { if (w) w.location = r.redirect; else location.href = r.redirect; }
@@ -261,7 +263,15 @@ forms.plans = async d => {
 
 /* ---------- start ---------- */
 window.addEventListener("hashchange", () => { if (!S.session) { readHash(); render(); } });
-if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+// Android back button: close the open window, then go back through visited screens, then send the app to the background.
+const AppPlugin = NATIVE && window.Capacitor.Plugins && window.Capacitor.Plugins.App;
+if (AppPlugin) AppPlugin.addListener("backButton", async () => {
+  if (S.ui.modal) return closeModal();
+  const prev = backStack.pop();
+  if (prev && S.session) { S.ui.view = prev; persist(); render(); window.scrollTo(0, 0); const f = views[prev]; if (f && f.load && !S.offline) await f.load(); return; }
+  AppPlugin.minimizeApp();
+});
+if (!NATIVE && "serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 api("GET", "plans").then(r => { applyPlans(r.plans); if (!S.session) render(); }).catch(() => {});
 if (auth.mode === "reset") { S.booting = false; render(); } else await boot();
 { const f = views[S.ui.view]; if (S.session && f && f.load && !S.offline) f.load().catch(e => toast(e.message)); }

@@ -1,7 +1,7 @@
 // Selling: cashier screen, options, payment (incl. split bill and automatic QRIS), receipts, refunds,
 // open bills and tables, kitchen display, member lookup and camera scanning.
 import { S, views, actions, forms, inputs, api, toast, render, openModal, closeModal, esc, rp, nf, uid, initials, swatch, modsText, daysTo, fmtDT,
-  isFnb, isRetail, isMgr, me, stockOf, pricing, prodMap, queueTrx, receiptText, ORDER_TYPES, METHODS, $, lsGet } from "./core.js";
+  isFnb, isRetail, isMgr, me, stockOf, pricing, prodMap, queueTrx, receiptText, ORDER_TYPES, METHODS, $, lsGet, openExternal } from "./core.js";
 import { lineKey, stockEffects } from "./pricing.js";
 import { printText, printerPrefs, widthFor } from "./print.js";
 import { startScanner, stopScanner } from "./scan.js";
@@ -356,7 +356,7 @@ actions.wa = el => {
   const n = ($("#wa").value || "").replace(/[\s-]/g, "");
   if (!/^(\+?62|0)8\d{7,12}$/.test(n)) { toast("Masukkan nomor WhatsApp yang dimulai 08"); return; }
   const intl = n.replace(/^\+/, "").replace(/^0/, "62");
-  window.open("https://wa.me/" + intl + "?text=" + encodeURIComponent(receiptText(findTrx(el.dataset.id), 32)), "_blank", "noopener");
+  openExternal("https://wa.me/" + intl + "?text=" + encodeURIComponent(receiptText(findTrx(el.dataset.id), 32)));
 };
 actions.refund = el => {
   const x = findTrx(el.dataset.id);

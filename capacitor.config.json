@@ -1,11 +1,9 @@
 {
   "appId": "com.kasira.pos",
   "appName": "Kasira POS",
-  "webDir": "public",
+  "webDir": "android-web",
   "server": {
-    "url": "https://kasira-c70.pages.dev/app/",
-    "androidScheme": "https",
-    "allowNavigation": ["kasira-c70.pages.dev"]
+    "androidScheme": "https"
   },
   "android": {
     "backgroundColor": "#0C7A62"

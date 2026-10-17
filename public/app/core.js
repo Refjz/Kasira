@@ -73,11 +73,21 @@ export function pricing(input, customer) {
 }
 
 /* ---------- API ---------- */
+// Inside the Android app the screens are bundled locally, so the API lives on the public server
+// and the session travels as a bearer token instead of a same-origin cookie.
+export const NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+export const SERVER = NATIVE ? "https://kasira-c70.pages.dev" : location.origin;
+// Links outside the app: the native shell hands these to the system (browser, WhatsApp, RawBT).
+export function openExternal(url) { if (NATIVE) location.href = url; else window.open(url, "_blank", "noopener"); }
+const TOKEN = "kasira-token";
 export async function api(method, path, body) {
   const hasBody = method !== "GET" && method !== "DELETE";
+  const headers = hasBody ? { "content-type": "application/json" } : {};
+  if (NATIVE) { const t = lsGet(TOKEN, ""); if (t) headers.authorization = "Bearer " + t; }
   let res;
-  try { res = await fetch("/api/" + path, { method, credentials: "same-origin", headers: hasBody ? { "content-type": "application/json" } : {}, body: hasBody ? JSON.stringify(body || {}) : undefined }); }
+  try { res = await fetch(SERVER + "/api/" + path, { method, credentials: NATIVE ? "omit" : "same-origin", headers, body: hasBody ? JSON.stringify(body || {}) : undefined }); }
   catch (e) { const err = new Error("Tidak ada koneksi internet. Coba lagi saat online."); err.offline = true; throw err; }
+  if (NATIVE) { const t = res.headers.get("x-kasira-token"); if (t) lsSet(TOKEN, t === "-" ? "" : t); }
   let data = {}; try { data = await res.json(); } catch (e) {}
   if (!res.ok) { const err = new Error(data.error || "Gagal memproses permintaan"); err.status = res.status; throw err; }
   return data;

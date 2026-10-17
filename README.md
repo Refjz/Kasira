@@ -63,3 +63,9 @@ gradlew bundleRelease assembleRelease
 
 Setiap unggahan ke Play Console butuh `VERSION_CODE` yang lebih besar dari sebelumnya.
 
+
+## Aplikasi Android
+
+Aplikasi Android memuat tampilan dari dalam APK (folder `android-web/`, dibuat dari `public/app` oleh `scripts/android-web.mjs`), bukan membuka situs di browser. Data tetap lewat API di `https://kasira-c70.pages.dev/api/`; sesi dikirim sebagai header `Authorization: Bearer`, dan server hanya membuka CORS untuk origin aplikasi (`https://localhost`, `capacitor://localhost`).
+
+Build APK + AAB bertanda tangan: `powershell -ExecutionPolicy Bypass -File build-android.ps1 -VersionCode 3` (naikkan setiap unggah ke Play Console). Tampilan baru di situs baru masuk ke aplikasi setelah build ulang, tetapi perubahan API langsung berlaku setelah deploy.

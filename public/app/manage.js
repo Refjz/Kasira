@@ -1,7 +1,7 @@
 // Back office: dashboard, products (units, wholesale, options, recipes), stock (goods in, stock count,
 // transfer, history, suppliers), members, promos and vouchers, staff, outlets and business settings.
 import { S, views, actions, forms, inputs, changes, api, toast, render, openModal, closeModal, esc, rp, nf, uid, initials, dayKey, daysTo, fmtDate, fmtDT, isoDay,
-  isFnb, isRetail, isMgr, me, net, stockOf, outletName, ROLE, $, boot, loadData } from "./core.js";
+  isFnb, isRetail, isMgr, me, net, stockOf, outletName, ROLE, $, boot, loadData, SERVER } from "./core.js";
 import { openCamera } from "./pos.js";
 import { unitCost } from "./pricing.js";
 
@@ -402,7 +402,7 @@ views.settings = (u, t) => {
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="sle">Dapat 1 poin setiap belanja (Rp)</label><input class="input num" id="sle" name="earnPer" type="number" min="1000" value="${loy.earnPer || 10000}"></div><div class="field" style="flex:1"><label for="slv">Nilai 1 poin saat ditukar (Rp)</label><input class="input num" id="slv" name="pointValue" type="number" min="1" value="${loy.pointValue || 100}"></div></div>
     <div><button class="btn primary" type="submit">Simpan</button></div></form>
   <form class="panel stack" data-form="setmt"><div class="spread"><h2>QRIS otomatis (Midtrans)</h2><span class="pill ${mt.configured ? "ok" : ""}">${mt.configured ? "tersambung" + (mt.production ? "" : " · sandbox") : "belum diatur"}</span></div>
-    <p class="muted" style="font-size:.9rem">Dengan akun Midtrans milik usahamu, kasir bisa membuat QRIS sesuai total belanja dan pembayaran terkonfirmasi otomatis. Dana masuk langsung ke rekening Midtrans-mu. Ambil Server Key di dashboard Midtrans, menu Settings, Access Keys. Atur juga Payment Notification URL ke <code>${esc(location.origin)}/api/midtrans/notify</code>.</p>
+    <p class="muted" style="font-size:.9rem">Dengan akun Midtrans milik usahamu, kasir bisa membuat QRIS sesuai total belanja dan pembayaran terkonfirmasi otomatis. Dana masuk langsung ke rekening Midtrans-mu. Ambil Server Key di dashboard Midtrans, menu Settings, Access Keys. Atur juga Payment Notification URL ke <code>${esc(SERVER)}/api/midtrans/notify</code>.</p>
     <div class="field"><label for="smk">Server Key</label><input class="input num" id="smk" name="serverKey" type="password" autocomplete="off" placeholder="${mt.configured ? "tersimpan, isi untuk mengganti" : "Mid-server-…"}"></div>
     <label class="row" style="gap:.35rem"><input type="checkbox" name="production" value="1" ${mt.production ? "checked" : ""}> Mode produksi (bukan sandbox)</label>
     <div class="row"><button class="btn primary" type="submit">Simpan</button>${mt.configured ? `<button class="btn danger" type="button" data-a="mtclear">Putuskan</button>` : ""}</div></form>
