@@ -216,9 +216,15 @@ export function render() {
   if (!shell) return;
   // Preserve focus and caret across re-renders so typing in inputs is not interrupted.
   const a = document.activeElement, id = a && a.id, pos = a && "selectionStart" in a ? (() => { try { return a.selectionStart; } catch (e) { return null; } })() : null;
-  const scrollers = [...root.querySelectorAll("[data-keep-scroll]")].map(el => [el.dataset.keepScroll, el.scrollTop]);
+  const scrollers = [...root.querySelectorAll("[data-keep-scroll]")].map(el => [el.dataset.keepScroll, el.scrollTop, el.scrollLeft]);
   root.innerHTML = shell();
-  for (const [k, top] of scrollers) { const el = root.querySelector(`[data-keep-scroll="${k}"]`); if (el) el.scrollTop = top; }
+  for (const [k, top, left] of scrollers) { const el = root.querySelector(`[data-keep-scroll="${k}"]`); if (el) { el.scrollTop = top; el.scrollLeft = left; } }
+  // On phones the menu is a horizontal strip: keep the current tab visible without jumping back to the start.
+  const nav = root.querySelector(".nav"), cur = nav && nav.querySelector("[aria-current]");
+  if (cur && nav.scrollWidth > nav.clientWidth) {
+    const l = cur.offsetLeft - nav.offsetLeft, r = l + cur.offsetWidth;
+    if (l < nav.scrollLeft) nav.scrollLeft = l - 8; else if (r > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = r - nav.clientWidth + 8;
+  }
   if (id) { const el = document.getElementById(id); if (el && root.contains(el)) { el.focus({ preventScroll: true }); if (pos !== null) try { el.setSelectionRange(pos, pos); } catch (e) {} } }
 }
 
