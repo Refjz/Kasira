@@ -1,7 +1,9 @@
 // App shell: menu per role, outlet switcher, offline banner, sign-in flows, account, billing and the app owner console.
 import { S, views, actions, forms, changes, api, toast, render, openModal, closeModal, setShell, boot, loadData, setOutlet, applyPlans, esc, rp, initials, fmtDate, daysTo,
-  isFnb, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey, NATIVE } from "./core.js";
+  isFnb, feat, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey, NATIVE } from "./core.js";
 import { resetPos } from "./pos.js";
+import { PROFILES } from "./biz.js";
+const BIZ_ICON = { restoran: "🍽️", kafe: "☕", warung: "🍜", minimarket: "🛒", retail: "👕", jasa: "✂️" };
 import { barChart } from "./manage.js";
 import { outboxPanel } from "./reports.js";
 import { printerPrefs, savePrinterPrefs, pairBluetooth, hasWebBluetooth, printText } from "./print.js";
@@ -10,7 +12,7 @@ import { printerPrefs, savePrinterPrefs, pairBluetooth, hasWebBluetooth, printTe
 function menuFor(u, t) {
   if (u.role === "superadmin" && !S.session.impersonating) return [["Konsol", [["platform", "Ringkasan Platform"], ["tenants", "Pelanggan"], ["plans", "Paket Langganan"]]], ["Akun", [["account", "Akun saya"]]]];
   const fnb = isFnb(t), mgr = isMgr(u), owner = u.role === "owner";
-  const sell = [mgr && ["dash", "Dasbor"], ["pos", "Kasir"], fnb && ["tables", "Meja"], fnb && ["kitchen", "Dapur"], !fnb && ["bills", "Pesanan ditahan"], ["shift", "Shift"], ["trx", u.role === "cashier" ? "Transaksi saya" : "Transaksi"]].filter(Boolean);
+  const sell = [mgr && ["dash", "Dasbor"], ["pos", "Kasir"], fnb && feat("tables") && ["tables", "Meja"], fnb && feat("kitchen") && ["kitchen", "Dapur"], !(fnb && feat("tables")) && ["bills", "Pesanan ditahan"], ["shift", "Shift"], ["trx", u.role === "cashier" ? "Transaksi saya" : "Transaksi"]].filter(Boolean);
   const manage = mgr ? [["products", "Produk"], ["stock", "Stok"], ["customers", "Pelanggan"], ["promos", "Promo & voucher"], ["reports", "Laporan"]] : [["customers", "Pelanggan"]];
   const biz = owner ? [["staff", "Staf"], ["outlets", "Outlet"], ["settings", "Pengaturan"], ["billing", "Langganan"]] : [];
   return [["Jualan", sell], ["Kelola", manage], ...(biz.length ? [["Usaha", biz]] : []), ["Akun", [["account", "Akun saya"]]]];
@@ -60,7 +62,7 @@ setShell(() => {
   const switcher = t && ok && isMgr(u) && S.outlets.length > 1 ? `<select class="input" data-ch="outlet" aria-label="Pilih outlet" style="font-weight:600">${S.outlets.map(o => `<option value="${o.id}" ${o.id === S.outlet ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select>` : "";
   return `<div class="app">
     <aside class="side">
-      <div class="brand"><i aria-hidden="true"></i>Zidny POS</div>
+      <div class="brand"><img src="logo.svg" alt="" aria-hidden="true">Zidny <span class="pos">POS</span></div>
       ${t ? `<div class="tenant-chip"><div class="label">Usaha</div><div style="font-weight:700">${esc(t.name)}</div><div class="muted" style="font-size:.8rem">${esc(t.type)} · ${t.access === "trial" ? "Coba gratis" : t.access === "paid" ? "Paket " + PLANS[t.plan].name : "Tidak aktif"}</div>${S.outlets.length > 1 && !isMgr(u) ? `<div class="muted" style="font-size:.8rem">${esc(outletName(S.outlet))}</div>` : ""}</div>`
         : `<div class="tenant-chip"><div class="label">Konsol</div><div style="font-weight:700">Pemilik Aplikasi</div><div class="muted" style="font-size:.8rem">${S.admin.tenants.length} usaha terdaftar</div></div>`}
       ${switcher}
@@ -102,8 +104,10 @@ function authView() {
       <form class="stack" data-form="signup">
         <div class="field"><label for="sn1">Nama kamu</label><input class="input" id="sn1" name="name" autocomplete="name" required></div>
         <div class="field"><label for="sb1">Nama usaha</label><input class="input" id="sb1" name="business" required placeholder="mis. Warung Makan Bu Tini"></div>
-        <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="st1">Jenis usaha</label><select class="input" id="st1" name="type"><option>F&amp;B</option><option>Minimarket</option><option>Retail</option><option>Jasa</option></select></div>
-        <div class="field" style="flex:1"><label for="sc1">Kota</label><input class="input" id="sc1" name="city" required></div></div>
+        <div class="field"><label for="sc1">Kota</label><input class="input" id="sc1" name="city" required></div>
+        <fieldset class="field" style="border:0;padding:0;margin:0"><legend class="label" style="margin-bottom:.35rem">Jenis usaha kamu</legend>
+          <div class="bizgrid">${Object.entries(PROFILES).map(([k, x]) => `<label class="bizopt"><input type="radio" name="biz" value="${k}" required><span class="ic" aria-hidden="true">${BIZ_ICON[k]}</span><b>${esc(x.name)}</b><span class="muted">${esc(x.hint)}</span></label>`).join("")}</div>
+          <span class="muted" style="font-size:.78rem">Menu, kategori, dan fitur disiapkan sesuai pilihanmu. Bisa diubah nanti di Pengaturan.</span></fieldset>
         <div class="field"><label for="se1">Email</label><input class="input" id="se1" name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label for="sp1">Kata sandi</label><input class="input" id="sp1" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="muted" style="font-size:.8rem">Minimal 8 karakter.</span></div>
         <button class="btn primary" type="submit">Mulai coba gratis</button></form>
@@ -124,7 +128,7 @@ function authView() {
   };
   return `<div class="login"><div class="login-card">
     <div class="login-hero">
-      <div class="stack">${NATIVE ? "" : `<a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Zidny</a>`}<h1>Zidny POS</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
+      <div class="stack">${NATIVE ? "" : `<a href="../" class="label" style="color:inherit;opacity:.85">← Beranda Zidny</a>`}<img src="logo.svg" alt="" aria-hidden="true" width="64" height="64"><h1>Zidny POS</h1><p style="font-size:1.05rem;max-width:34ch">Aplikasi kasir untuk minimarket dan F&amp;B. Tetap jalan saat internet putus.</p></div>
       <ul><li>Meja, open bill, split bill, layar dapur, resep bahan baku</li><li>Scan barcode pakai kamera HP, satuan pcs/pak/dus, harga grosir</li><li>QRIS otomatis, struk Bluetooth & WhatsApp</li><li>Shift kasir, refund dengan PIN manajer</li><li>Member, poin, promo, voucher, multi-outlet</li><li>Laporan lengkap & ekspor Excel</li><li>Gratis ${TRIAL_DAYS} hari, lalu ${rp(PLANS.bulanan.price)}/bulan atau ${rp(PLANS.tahunan.price)}/tahun</li></ul>
     </div>
     <div class="login-side"><div class="spread">${tabs || "<span></span>"}<button class="btn sm theme-btn" data-a="theme" aria-label="Ganti tema (sekarang ${themeLabel()})" title="Tema: ${themeLabel()}">${themeIcon()}</button></div>${F[m] || F.login}</div>

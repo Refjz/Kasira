@@ -1,5 +1,6 @@
 // Zidny app core: state, API client, offline cache + outbox, shared helpers and the render loop.
 import { priceOrder } from "./pricing.js";
+import { featuresOf } from "./biz.js";
 
 export const DAY = 86400000;
 export const TRIAL_DAYS = 7;
@@ -29,6 +30,8 @@ export const views = {}, actions = {}, forms = {}, inputs = {}, changes = {};
 
 /* ---------- helpers ---------- */
 export const isFnb = t => !!t && t.type === "F&B";
+// Feature switches from the business profile (Settings > Jenis usaha).
+export const feat = k => !!featuresOf(S.settings, S.tenant && S.tenant.type)[k];
 export const isRetail = t => !!t && (t.type === "Minimarket" || t.type === "Retail");
 export const isMgr = u => !!u && (u.role === "owner" || u.role === "manager");
 export const rp = n => (n < 0 ? "−Rp" : "Rp") + Math.abs(Math.round(+n || 0)).toLocaleString("id-ID");
@@ -226,6 +229,13 @@ export function render() {
     if (l < nav.scrollLeft) nav.scrollLeft = l - 8; else if (r > nav.scrollLeft + nav.clientWidth) nav.scrollLeft = r - nav.clientWidth + 8;
   }
   if (id) { const el = document.getElementById(id); if (el && root.contains(el)) { el.focus({ preventScroll: true }); if (pos !== null) try { el.setSelectionRange(pos, pos); } catch (e) {} } }
+  if (!S.booting) hideSplash();
+}
+// The logo splash in index.html stays up until the first real screen, and at least about a second so it doesn't flash.
+function hideSplash() {
+  const el = document.getElementById("splash"); if (!el || el.dataset.out) return;
+  el.dataset.out = 1;
+  setTimeout(() => { el.classList.add("out"); setTimeout(() => el.remove(), 500); }, Math.max(0, 1400 - performance.now()));
 }
 
 /* ---------- event wiring ---------- */

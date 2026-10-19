@@ -4,6 +4,7 @@
 // optional MIDTRANS_SERVER_KEY + MIDTRANS_PRODUCTION (subscription checkout),
 // optional RESEND_API_KEY + MAIL_FROM (password-reset email).
 import { priceOrder, stockEffects, lineKey } from "../../public/app/pricing.js";
+import { PROFILES, FEATURES, profileOf, featuresOf } from "../../public/app/biz.js";
 
 const DAY = 86400000;
 const TRIAL_DAYS = 7;
@@ -19,7 +20,6 @@ async function getPlans(env) {
 }
 const STAFF_ROLES = ["manager", "cashier"];
 const MANAGERS = ["owner", "manager"];
-const TYPES = ["F&B", "Minimarket", "Retail", "Jasa"];
 const METHODS = ["Tunai", "QRIS", "Kartu Debit", "Kartu Kredit", "Transfer", "E-Wallet"];
 const MAIN = "main";
 
@@ -125,9 +125,14 @@ async function getSettings(env, tid) {
   const s = r ? parse(r.data) : {};
   return { ...DEFAULT_SETTINGS, ...s, loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(s.loyalty || {}) }, midtrans: { ...DEFAULT_SETTINGS.midtrans, ...(s.midtrans || {}) } };
 }
-function settingsOut(s) {
+// Profile, features and categories, filled in from the tenant's type for accounts made before they existed.
+function bizSettings(s, type) {
+  const biz = profileOf(s, type);
+  return { biz, features: featuresOf(s, type), categories: Array.isArray(s.categories) ? s.categories : PROFILES[biz].categories };
+}
+function settingsOut(s, type) {
   const { midtrans, ...rest } = s;
-  return { ...rest, midtrans: { configured: !!midtrans.serverKey, production: !!midtrans.production, clientKey: midtrans.clientKey || "" } };
+  return { ...rest, ...bizSettings(s, type), midtrans: { configured: !!midtrans.serverKey, production: !!midtrans.production, clientKey: midtrans.clientKey || "" } };
 }
 async function saveSettings(env, tid, s) {
   await env.DB.prepare("INSERT INTO settings (tenant_id, data) VALUES (?, ?) ON CONFLICT (tenant_id) DO UPDATE SET data = excluded.data").bind(tid, JSON.stringify(s)).run();
@@ -232,28 +237,43 @@ function cleanProduct(p, id, tid) {
 const routes = [];
 const on = (method, pattern, fn) => routes.push({ method, re: new RegExp("^" + pattern.replace(/:(\w+)/g, "(?<$1>[^/]+)") + "$"), fn });
 
-function starterProducts(type) {
-  if (type === "F&B") return [
-    { name: "Es Teh Manis", cat: "Minuman", price: 5000, cost: 1500, stock: 100 },
-    { name: "Kopi Susu", cat: "Minuman", price: 15000, cost: 6000, stock: 100, mods: [{ name: "Gula", opts: ["Normal", "Less", "Tanpa"] }, { name: "Es", opts: ["Normal", "Sedikit"] }] },
-    { name: "Nasi Goreng", cat: "Makanan", price: 20000, cost: 9000, stock: 50, mods: [{ name: "Pedas", opts: ["Tidak", "Sedang", "Pedas"] }] },
-    { name: "Mi Goreng", cat: "Makanan", price: 18000, cost: 8000, stock: 50 }
-  ];
-  if (type === "Jasa") return [
-    { name: "Layanan Standar", cat: "Layanan", price: 25000, cost: 8000, track: false },
-    { name: "Layanan Premium", cat: "Layanan", price: 50000, cost: 15000, track: false }
-  ];
-  return [
-    { name: "Air Mineral 600 ml", cat: "Minuman", price: 4000, cost: 2500, stock: 48, units: [{ name: "dus", qty: 24, price: 84000 }] },
-    { name: "Mi Instan Goreng", cat: "Makanan", price: 3500, cost: 2800, stock: 40, whole: { min: 10, price: 3200 } },
-    { name: "Gula Pasir 1 kg", cat: "Sembako", price: 17500, cost: 15000, stock: 20 }
-  ];
+function starterProducts(biz) {
+  const type = PROFILES[biz].type, list = (() => {
+    if (biz === "kafe") return [
+      { name: "Kopi Susu Gula Aren", cat: "Kopi", price: 18000, cost: 7000, stock: 100, mods: [{ name: "Gula", opts: ["Normal", "Less", "Tanpa"] }, { name: "Es", opts: ["Normal", "Sedikit"] }] },
+      { name: "Americano", cat: "Kopi", price: 15000, cost: 5000, stock: 100, mods: [{ name: "Suhu", opts: ["Dingin", "Panas"] }] },
+      { name: "Matcha Latte", cat: "Non-kopi", price: 20000, cost: 8000, stock: 100 },
+      { name: "Kentang Goreng", cat: "Snack", price: 15000, cost: 6000, stock: 50 }
+    ];
+    if (type === "F&B") return [
+      { name: "Es Teh Manis", cat: "Minuman", price: 5000, cost: 1500, stock: 100 },
+      { name: "Kopi Susu", cat: "Minuman", price: 15000, cost: 6000, stock: 100, mods: [{ name: "Gula", opts: ["Normal", "Less", "Tanpa"] }, { name: "Es", opts: ["Normal", "Sedikit"] }] },
+      { name: "Nasi Goreng", cat: "Makanan", price: 20000, cost: 9000, stock: 50, mods: [{ name: "Pedas", opts: ["Tidak", "Sedang", "Pedas"] }] },
+      { name: "Mi Goreng", cat: "Makanan", price: 18000, cost: 8000, stock: 50 }
+    ];
+    if (type === "Jasa") return [
+      { name: "Layanan Standar", cat: "Layanan", price: 25000, cost: 8000, track: false },
+      { name: "Layanan Premium", cat: "Layanan", price: 50000, cost: 15000, track: false }
+    ];
+    if (type === "Retail") return [
+      { name: "Kaos Polos", cat: "Pakaian", price: 75000, cost: 40000, stock: 30, mods: [{ name: "Ukuran", opts: ["S", "M", "L", "XL"] }] },
+      { name: "Topi", cat: "Aksesoris", price: 50000, cost: 25000, stock: 20 }
+    ];
+    return [
+      { name: "Air Mineral 600 ml", cat: "Minuman", price: 4000, cost: 2500, stock: 48, units: [{ name: "dus", qty: 24, price: 84000 }] },
+      { name: "Mi Instan Goreng", cat: "Sembako", price: 3500, cost: 2800, stock: 40, whole: { min: 10, price: 3200 } },
+      { name: "Gula Pasir 1 kg", cat: "Sembako", price: 17500, cost: 15000, stock: 20 }
+    ];
+  })();
+  // Leave out what the profile turns off, so a restaurant doesn't start with made-up costs.
+  const f = PROFILES[biz].features;
+  return list.map(p => ({ ...p, cost: f.cost ? p.cost : 0, mods: f.mods ? p.mods : undefined, units: f.units ? p.units : undefined, whole: f.wholesale ? p.whole : undefined }));
 }
 
 on("POST", "signup", async ({ env, body }) => {
   const email = normEmail(body.email); checkEmail(email); checkPassword(body.password);
   const name = str(body.name), business = str(body.business), city = str(body.city, 60);
-  const type = TYPES.includes(body.type) ? body.type : "F&B";
+  const biz = PROFILES[body.biz] ? body.biz : profileOf(null, body.type), type = PROFILES[biz].type;
   if (!name || !business || !city) fail(400, "Lengkapi nama, nama usaha, dan kota");
   if (env.OWNER_EMAIL && email === normEmail(env.OWNER_EMAIL)) fail(400, "Email ini khusus Pemilik Aplikasi. Pakai halaman aktivasi pemilik.");
   if (await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) fail(409, "Email sudah terdaftar. Silakan masuk.");
@@ -264,9 +284,12 @@ on("POST", "signup", async ({ env, body }) => {
     env.DB.prepare("INSERT INTO users (id, email, name, role, tenant_id, pass_hash, pass_salt, created) VALUES (?, ?, ?, 'owner', ?, ?, ?, ?)")
       .bind(uid, email, name, tid, await hashPassword(body.password, salt), salt, now),
     env.DB.prepare("INSERT INTO outlets (tenant_id, id, data) VALUES (?, ?, ?)").bind(tid, MAIN, JSON.stringify({ id: MAIN, name: "Outlet utama", address: city, created: now })),
-    env.DB.prepare("INSERT INTO settings (tenant_id, data) VALUES (?, ?)").bind(tid, JSON.stringify({ tables: type === "F&B" ? Array.from({ length: 10 }, (_, i) => ({ id: "m" + (i + 1), name: String(i + 1), area: "Dalam" })) : [] }))
+    env.DB.prepare("INSERT INTO settings (tenant_id, data) VALUES (?, ?)").bind(tid, JSON.stringify({
+      biz, features: PROFILES[biz].features, categories: PROFILES[biz].categories,
+      tables: PROFILES[biz].features.tables ? Array.from({ length: 10 }, (_, i) => ({ id: "m" + (i + 1), name: String(i + 1), area: "Dalam" })) : []
+    }))
   ];
-  for (const sp of starterProducts(type)) {
+  for (const sp of starterProducts(biz)) {
     const id = newId("p"), p = cleanProduct(sp, id, tid);
     stmts.push(env.DB.prepare("INSERT INTO products (tenant_id, id, data) VALUES (?, ?, ?)").bind(tid, id, JSON.stringify(p)));
     if (p.track && sp.stock) stmts.push(stockStmt(env, tid, MAIN, id, sp.stock));
@@ -389,7 +412,7 @@ on("GET", "me", async ({ env, sess }) => {
     const mm = Object.fromEntries(metas.results.map(r => [r.user_id, parse(r.data)]));
     out.staff = users.results.map(u => userOut(u, mm[u.id]));
     out.outlets = await listOutlets(env, sess.tenant.id);
-    out.settings = settingsOut(await getSettings(env, sess.tenant.id));
+    out.settings = settingsOut(await getSettings(env, sess.tenant.id), sess.tenant.type);
   }
   return json(out);
 });
@@ -692,7 +715,7 @@ on("POST", "bills", async ({ env, sess, body }) => {
   }
   bill.updated = Date.now();
   const stmts = [env.DB.prepare("INSERT INTO bills (tenant_id, id, outlet_id, status, updated, data) VALUES (?, ?, ?, 'open', ?, ?) ON CONFLICT (tenant_id, id) DO UPDATE SET data = excluded.data, updated = excluded.updated").bind(t.id, bill.id, bill.outletId || outlet, bill.updated, JSON.stringify(bill))];
-  if (add.length && t.type === "F&B") stmts.push(kitchenStmt(env, t.id, bill.outletId || outlet, { id: newId("K"), ref: bill.id, time: Date.now(), table: bill.table, label: bill.label, orderType: bill.orderType, by: sess.user.name, lines: add.map(l => ({ name: l.name, qty: l.qty, mods: l.mods, note: l.note })) }));
+  if (add.length && t.type === "F&B" && featuresOf(await getSettings(env, t.id), t.type).kitchen) stmts.push(kitchenStmt(env, t.id, bill.outletId || outlet, { id: newId("K"), ref: bill.id, time: Date.now(), table: bill.table, label: bill.label, orderType: bill.orderType, by: sess.user.name, lines: add.map(l => ({ name: l.name, qty: l.qty, mods: l.mods, note: l.note })) }));
   await env.DB.batch(stmts);
   return json({ bill });
 });
@@ -996,6 +1019,9 @@ on("PUT", "settings", async ({ env, sess, body }) => {
   if (b.requireShift !== undefined) s.requireShift = !!b.requireShift;
   if (Array.isArray(b.tables)) s.tables = b.tables.map((x, i) => ({ id: str(x.id, 20) || "m" + i, name: str(x.name, 20), area: str(x.area, 30) || "Dalam" })).filter(x => x.name).slice(0, 200);
   if (b.loyalty) s.loyalty = { enabled: !!b.loyalty.enabled, earnPer: Math.max(1000, num(b.loyalty.earnPer, 1000, 1e9)), pointValue: Math.max(1, num(b.loyalty.pointValue, 1, 1e6)) };
+  if (b.biz !== undefined && PROFILES[b.biz]) s.biz = b.biz;
+  if (b.features && typeof b.features === "object") s.features = Object.fromEntries(Object.keys(FEATURES).map(k => [k, b.features[k] !== undefined ? !!b.features[k] : featuresOf(s, t.type)[k]]));
+  if (Array.isArray(b.categories)) s.categories = [...new Set(b.categories.map(c => str(c, 40)).filter(Boolean))].slice(0, 100);
   if (b.midtrans) {
     if (b.midtrans.serverKey !== undefined) s.midtrans.serverKey = str(b.midtrans.serverKey, 200);
     if (b.midtrans.clientKey !== undefined) s.midtrans.clientKey = str(b.midtrans.clientKey, 200);
@@ -1003,9 +1029,10 @@ on("PUT", "settings", async ({ env, sess, body }) => {
   }
   const stmts = [env.DB.prepare("INSERT INTO settings (tenant_id, data) VALUES (?, ?) ON CONFLICT (tenant_id) DO UPDATE SET data = excluded.data").bind(t.id, JSON.stringify(s))];
   if (b.tax !== undefined) stmts.push(env.DB.prepare("UPDATE tenants SET tax = ? WHERE id = ?").bind(num(b.tax, 0, 30), t.id));
+  if (s.biz && PROFILES[s.biz].type !== t.type) stmts.push(env.DB.prepare("UPDATE tenants SET type = ? WHERE id = ?").bind(PROFILES[s.biz].type, t.id));
   if (b.name !== undefined && str(b.name)) stmts.push(env.DB.prepare("UPDATE tenants SET name = ? WHERE id = ?").bind(str(b.name), t.id));
   await env.DB.batch(stmts);
-  return json({ settings: settingsOut(s), tenant: tenantOut(await env.DB.prepare("SELECT * FROM tenants WHERE id = ?").bind(t.id).first()) });
+  return json({ settings: settingsOut(s, t.type), tenant: tenantOut(await env.DB.prepare("SELECT * FROM tenants WHERE id = ?").bind(t.id).first()) });
 });
 
 // Wipe all business data (any plan). Needs the owner's password; accounts, outlets and settings stay.

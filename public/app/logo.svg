@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#14B889"/><stop offset=".55" stop-color="#0C7A62"/><stop offset="1" stop-color="#064A3C"/></linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#FFD36E"/><stop offset="1" stop-color="#F0A21E"/></linearGradient>
+    <linearGradient id="ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#0E8A6C"/><stop offset="1" stop-color="#075E4B"/></linearGradient>
+    <filter id="sh" x="-20%" y="-20%" width="140%" height="150%"><feDropShadow dx="0" dy="14" stdDeviation="16" flood-color="#022A21" flood-opacity=".38"/></filter>
+  </defs>
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+  <clipPath id="c"><rect width="512" height="512" rx="116"/></clipPath><circle clip-path="url(#c)" cx="440" cy="60" r="190" fill="#fff" opacity=".07"/>
+  <path filter="url(#sh)" fill="#fff" d="M150 96h212a24 24 0 0 1 24 24v292l-26.5 -20 -26.5 20 -26.5 -20 -26.5 20 -26.5 -20 -26.5 20 -26.5 -20 -26.5 20V120a24 24 0 0 1 24-24z"/>
+  <rect x="184" y="148" width="144" height="40" rx="8" fill="url(#ink)"/><rect x="184" y="302" width="144" height="40" rx="8" fill="url(#ink)"/>
+  <path fill="url(#gold)" d="M272 188h56L240 302h-56z"/>
+  <rect x="184" y="362" width="64" height="12" rx="6" fill="#CFDDD7"/><rect x="268" y="362" width="64" height="12" rx="6" fill="#CFDDD7"/>
+</svg>

@@ -1,7 +1,7 @@
 // Selling: cashier screen, options, payment (incl. split bill and automatic QRIS), receipts, refunds,
 // open bills and tables, kitchen display, member lookup and camera scanning.
 import { S, views, actions, forms, inputs, api, toast, render, openModal, closeModal, esc, rp, nf, uid, initials, swatch, modsText, daysTo, fmtDT,
-  isFnb, isRetail, isMgr, me, stockOf, pricing, prodMap, queueTrx, receiptText, ORDER_TYPES, METHODS, $, lsGet, openExternal } from "./core.js";
+  isFnb, feat, isRetail, isMgr, me, stockOf, pricing, prodMap, queueTrx, receiptText, ORDER_TYPES, METHODS, $, lsGet, openExternal } from "./core.js";
 import { lineKey, stockEffects } from "./pricing.js";
 import { printText, printerPrefs, widthFor } from "./print.js";
 import { startScanner, stopScanner } from "./scan.js";
@@ -33,9 +33,9 @@ function addLine(p, opts = {}) {
 
 /* ---------- cashier screen ---------- */
 views.pos = (u, t) => {
-  const o = P(), b = curBill(), fnb = isFnb(t), retail = isRetail(t);
+  const o = P(), b = curBill(), fnb = isFnb(t), retail = isRetail(t), tbl = fnb && feat("tables"), kit = fnb && feat("kitchen");
   const prods = sellable();
-  const cats = ["Semua", ...new Set(prods.map(p => p.cat))];
+  const used = new Set(prods.map(p => p.cat)), cats = ["Semua", ...new Set([...((S.settings && S.settings.categories) || []).filter(c => used.has(c)), ...used])];
   const q = o.q.toLowerCase();
   const shown = prods.filter(p => (o.cat === "Semua" || p.cat === o.cat) && (!q || p.name.toLowerCase().includes(q) || (p.sku || "").includes(q) || (p.units || []).some(x => (x.sku || "").includes(q))));
   const c = preview(), cust = customer();
@@ -49,7 +49,7 @@ views.pos = (u, t) => {
   };
   return `${needShift ? `<div class="trial-bar"><span><b>Shift belum dibuka.</b> <span class="muted">Buka shift dengan modal awal kas sebelum menerima pembayaran.</span></span><button class="btn sm primary" data-a="shiftopen">Buka shift</button></div>` : ""}
   <div class="spread"><div><h1>Kasir</h1><span class="pill ${fnb ? "gold" : "ok"}">Mode ${fnb ? "F&amp;B" : retail ? "Minimarket" : esc(t.type)}</span> ${S.outlets.length > 1 ? `<span class="pill">${esc((S.outlets.find(x => x.id === S.outlet) || {}).name || "")}</span>` : ""}</div>
-    <div class="row">${S.data.bills.length ? `<button class="btn sm" data-a="nav" data-v="${fnb ? "tables" : "bills"}">Pesanan terbuka <span class="pill gold">${S.data.bills.length}</span></button>` : ""}<span class="muted" style="font-size:.9rem">${esc(u.name)}</span></div></div>
+    <div class="row">${S.data.bills.length ? `<button class="btn sm" data-a="nav" data-v="${tbl ? "tables" : "bills"}">Pesanan terbuka <span class="pill gold">${S.data.bills.length}</span></button>` : ""}<span class="muted" style="font-size:.9rem">${esc(u.name)}</span></div></div>
   <div class="pos">
     <section class="stack">
       <div class="scan"><div class="row" style="flex-wrap:nowrap"><input class="input" id="pos-q" type="search" placeholder="${retail ? "Scan barcode atau ketik nama, lalu Enter" : "Cari menu…"}" value="${esc(o.q)}" data-in="posq" autocomplete="off" enterkeyhint="search"><button class="btn" data-a="camscan" title="Scan pakai kamera" aria-label="Scan barcode pakai kamera">${ICON_CAM}</button></div></div>
@@ -70,7 +70,7 @@ views.pos = (u, t) => {
     <aside class="panel cart">
       <div class="spread"><h2>${b ? (b.table ? "Meja " + esc(b.table) : esc(b.label || "Pesanan terbuka")) : "Pesanan"}</h2><div class="row">${b ? `<button class="btn sm" data-a="billexit">Tutup</button>` : ""}${o.cart.length ? `<button class="btn sm danger" data-a="clear">Kosongkan</button>` : ""}</div></div>
       ${fnb && !b ? `<div class="stack" style="gap:.5rem"><div class="seg" role="group" aria-label="Jenis pesanan">${ORDER_TYPES.map(x => `<button data-a="otype" data-v="${x}" aria-pressed="${o.order.type === x}">${x}</button>`).join("")}</div>
-        ${o.order.type === "Makan di sini" ? `<div class="row" style="flex-wrap:nowrap"><label for="tbl" style="font-weight:600;font-size:.85rem;white-space:nowrap">Meja</label>${(S.settings.tables || []).length ? `<select class="input" id="tbl" data-ch="table"><option value="">Pilih meja</option>${S.settings.tables.map(x => `<option ${o.order.table === x.name ? "selected" : ""} ${S.data.bills.some(bb => bb.table === x.name) ? "disabled" : ""}>${esc(x.name)}</option>`).join("")}</select>` : `<input class="input" id="tbl" data-in="table" inputmode="numeric" value="${esc(o.order.table)}" placeholder="mis. 5" style="max-width:110px">`}</div>` : ""}</div>` : ""}
+        ${tbl && o.order.type === "Makan di sini" ? `<div class="row" style="flex-wrap:nowrap"><label for="tbl" style="font-weight:600;font-size:.85rem;white-space:nowrap">Meja</label>${(S.settings.tables || []).length ? `<select class="input" id="tbl" data-ch="table"><option value="">Pilih meja</option>${S.settings.tables.map(x => `<option ${o.order.table === x.name ? "selected" : ""} ${S.data.bills.some(bb => bb.table === x.name) ? "disabled" : ""}>${esc(x.name)}</option>`).join("")}</select>` : `<input class="input" id="tbl" data-in="table" inputmode="numeric" value="${esc(o.order.table)}" placeholder="mis. 5" style="max-width:110px">`}</div>` : ""}</div>` : ""}
       <button class="btn sm" data-a="custpick" style="justify-content:flex-start">${cust ? `👤 ${esc(cust.name)} · <span class="num">${nf(cust.points || 0)} poin</span>` : "＋ Pilih pelanggan / member"}</button>
       <div class="cart-lines" data-keep-scroll="cart">${b && b.lines.length ? `<div class="label">Sudah dipesan</div>${b.lines.map((l, i) => lineRow(l, i, true)).join("")}${o.cart.length ? `<div class="label">Tambahan</div>` : ""}` : ""}
         ${o.cart.map(l => lineRow(l, 0, false)).join("")}
@@ -80,7 +80,7 @@ views.pos = (u, t) => {
       ${c.voucherError && o.voucher ? `<span class="down" style="font-size:.82rem">${esc(c.voucherError)}</span>` : ""}
       <div class="sum">${sumRows(c)}</div>
       <div class="row" style="flex-wrap:nowrap">
-        ${(o.cart.length || b) ? `<button class="btn" style="flex:1" data-a="hold">${b ? (o.cart.length ? (fnb ? "Kirim ke dapur" : "Simpan tambahan") : "Simpan") : (fnb ? "Simpan & kirim ke dapur" : "Tahan pesanan")}</button>` : ""}
+        ${(o.cart.length || b) ? `<button class="btn" style="flex:1" data-a="hold">${b ? (o.cart.length ? (kit ? "Kirim ke dapur" : "Simpan tambahan") : "Simpan") : (kit ? "Simpan & kirim ke dapur" : "Tahan pesanan")}</button>` : ""}
         <button class="btn primary" style="flex:1.4;padding:.8rem;font-size:1.02rem" data-a="pay" ${orderLines().length ? "" : "disabled"}>Bayar ${orderLines().length ? rp(c.total) : ""}</button>
       </div>
     </aside>
@@ -193,10 +193,10 @@ forms.shiftopen = async d => { const r = await api("POST", "shift/open", { openC
 /* ---------- hold / open bills ---------- */
 actions.hold = async el => {
   const o = P(), t = S.tenant, b = curBill();
-  if (!b && isFnb(t) && o.order.type === "Makan di sini" && !o.order.table.trim()) {
+  if (!b && isFnb(t) && feat("tables") && o.order.type === "Makan di sini" && !o.order.table.trim()) {
     openModal(`<h2>Simpan pesanan</h2><form class="stack" data-form="holdlabel"><div class="field"><label for="hl">Nama pesanan</label><input class="input" id="hl" name="label" required placeholder="mis. Pak Budi, Meja teras" autofocus></div><div class="row"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`); return;
   }
-  if (!b && !isFnb(t)) { openModal(`<h2>Tahan pesanan</h2><form class="stack" data-form="holdlabel"><div class="field"><label for="hl">Nama pesanan</label><input class="input" id="hl" name="label" required placeholder="mis. Ibu baju merah" autofocus></div><div class="row"><button class="btn primary" type="submit">Tahan</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`); return; }
+  if (!b && !(isFnb(t) && feat("tables"))) { openModal(`<h2>Tahan pesanan</h2><form class="stack" data-form="holdlabel"><div class="field"><label for="hl">Nama pesanan</label><input class="input" id="hl" name="label" required placeholder="mis. Ibu baju merah" autofocus></div><div class="row"><button class="btn primary" type="submit">Tahan</button><button class="btn" type="button" data-a="close">Batal</button></div></form>`); return; }
   el.disabled = true; await saveBill(); render();
 };
 forms.holdlabel = async d => { P().order.label = d.label.trim(); await saveBill(); closeModal(); };
@@ -205,8 +205,8 @@ async function saveBill() {
   const r = await api("POST", "bills", { id: b ? b.id : undefined, outlet: S.outlet, lines: o.cart.map(l => ({ pid: l.pid, qty: l.qty, unit: l.unit, mods: l.mods, note: l.note })), table: b ? undefined : (o.order.type === "Makan di sini" ? o.order.table : ""), orderType: b ? undefined : o.order.type, label: b ? undefined : o.order.label, customerId: o.customerId || undefined });
   const i = S.data.bills.findIndex(x => x.id === r.bill.id); if (i >= 0) S.data.bills[i] = r.bill; else S.data.bills.push(r.bill);
   const sentNew = o.cart.length;
-  if (!b) { toast("Pesanan " + (r.bill.table ? "meja " + r.bill.table : r.bill.label) + " disimpan" + (isFnb(S.tenant) ? " dan dikirim ke dapur" : "")); resetPos(); }
-  else { o.cart = []; if (sentNew) toast(isFnb(S.tenant) ? "Tambahan dikirim ke dapur" : "Tambahan disimpan"); }
+  if (!b) { toast("Pesanan " + (r.bill.table ? "meja " + r.bill.table : r.bill.label) + " disimpan" + (isFnb(S.tenant) && feat("kitchen") ? " dan dikirim ke dapur" : "")); resetPos(); }
+  else { o.cart = []; if (sentNew) toast(isFnb(S.tenant) && feat("kitchen") ? "Tambahan dikirim ke dapur" : "Tambahan disimpan"); }
   return r.bill;
 }
 export function openBill(id) { const b = S.data.bills.find(x => x.id === id); if (!b) return; resetPos(); P().billId = id; P().customerId = b.customerId || null; S.ui.view = "pos"; render(); }
@@ -240,7 +240,7 @@ const payLines = () => {
 actions.pay = async el => {
   const o = P(), t = S.tenant;
   if (S.settings.requireShift && !S.data.shift) { actions.shiftopen(); return; }
-  if (!curBill() && isFnb(t) && o.order.type === "Makan di sini" && !o.order.table.trim()) { toast("Pilih nomor meja dulu"); const x = $("#tbl"); if (x) x.focus(); return; }
+  if (!curBill() && isFnb(t) && feat("tables") && o.order.type === "Makan di sini" && !o.order.table.trim()) { toast("Pilih nomor meja dulu"); const x = $("#tbl"); if (x) x.focus(); return; }
   if (curBill() && o.cart.length) { el.disabled = true; await saveBill(); }
   pay = { method: "Tunai", paid: 0, split: false, sel: {}, qris: null };
   openModal(payModal);

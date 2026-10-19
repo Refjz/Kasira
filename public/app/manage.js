@@ -1,9 +1,10 @@
 // Back office: dashboard, products (units, wholesale, options, recipes), stock (goods in, stock count,
 // transfer, history, suppliers), members, promos and vouchers, staff, outlets and business settings.
 import { S, views, actions, forms, inputs, changes, api, toast, render, openModal, closeModal, esc, rp, nf, uid, initials, dayKey, daysTo, fmtDate, fmtDT, isoDay,
-  isFnb, isRetail, isMgr, me, net, stockOf, outletName, ROLE, $, boot, loadData, SERVER } from "./core.js";
+  isFnb, feat, isRetail, isMgr, me, net, stockOf, outletName, ROLE, $, boot, loadData, SERVER } from "./core.js";
 import { openCamera } from "./pos.js";
 import { unitCost } from "./pricing.js";
+import { PROFILES, FEATURES, featuresOf, profileOf } from "./biz.js";
 
 const arr = v => v === undefined ? [] : [].concat(v);
 const dateTs = (s, end) => s ? new Date(s + (end ? "T23:59:59" : "T00:00:00")).getTime() : undefined;
@@ -73,49 +74,56 @@ views.dash = (u, t) => {
 let prodQ = "", prodCat = "Semua";
 views.products = (u, t) => {
   const q = prodQ.toLowerCase();
-  const cats = ["Semua", ...new Set(S.data.products.map(p => p.cat)), "Bahan baku"];
+  const cats = ["Semua", ...new Set([...catList(), ...S.data.products.map(p => p.cat)]), ...(feat("recipe") ? ["Bahan baku"] : [])];
   const list = S.data.products.filter(p => (prodCat === "Semua" || (prodCat === "Bahan baku" ? p.ingredient : p.cat === prodCat)) && (!q || p.name.toLowerCase().includes(q) || (p.sku || "").includes(q)));
   return `<div class="spread"><div><h1>Produk</h1><p class="muted">${S.data.products.length} produk · stok yang tampil untuk ${esc(outletName(S.outlet))}</p></div><div class="row"><button class="btn" data-a="nav" data-v="stock">Stok & barang masuk</button><button class="btn primary" data-a="newprod">Tambah produk</button></div></div>
   <div class="row" style="flex-wrap:nowrap"><input class="input" id="prodq" type="search" data-in="prodq" value="${esc(prodQ)}" placeholder="Cari nama atau barcode" autocomplete="off"><button class="btn" data-a="prodscan" aria-label="Cari pakai kamera">Scan</button></div>
   <div class="cats" role="group" aria-label="Kategori">${cats.map(k => `<button data-a="prodcat" data-v="${esc(k)}" aria-pressed="${prodCat === k}">${esc(k)}</button>`).join("")}</div>
-  <div class="panel tbl-wrap"><table><thead><tr><th>Produk</th><th>Kategori</th><th class="r">Harga</th><th class="r">Modal</th><th class="r">Margin</th><th class="r">Stok</th><th></th></tr></thead><tbody>
+  <div class="panel tbl-wrap"><table><thead><tr><th>Produk</th><th>Kategori</th><th class="r">Harga</th>${feat("cost") ? `<th class="r">Modal</th><th class="r">Margin</th>` : ""}<th class="r">Stok</th><th></th></tr></thead><tbody>
   ${list.map(p => { const st = stockOf(p), cost = unitCost(p, id => S.data.products.find(x => x.id === id)), m = p.price ? Math.round((p.price - cost) / p.price * 100) : 0; return `<tr><td><b>${esc(p.name)}</b>${p.ingredient ? ' <span class="pill">bahan</span>' : ""}${p.recipe ? ' <span class="pill ok">resep</span>' : ""}<div class="muted num" style="font-size:.78rem">${esc(p.sku || "")}${p.units ? " · " + p.units.map(x => esc(x.name) + "=" + x.qty).join(", ") : ""}${p.whole ? " · grosir ≥" + p.whole.min : ""}</div></td>
-    <td>${esc(p.cat)}</td><td class="r num">${p.ingredient ? "–" : rp(p.price)}</td><td class="r num">${rp(cost)}</td><td class="r num">${p.ingredient ? "–" : m + "%"}</td>
+    <td>${esc(p.cat)}</td><td class="r num">${p.ingredient ? "–" : rp(p.price)}</td>${feat("cost") ? `<td class="r num">${rp(cost)}</td><td class="r num">${p.ingredient ? "–" : m + "%"}</td>` : ""}
     <td class="r">${st === Infinity ? `<span class="muted">${p.recipe ? "dari resep" : "tidak dilacak"}</span>` : `<span class="pill ${st <= 0 ? "bad" : st <= (p.minStock || 10) ? "gold" : ""}">${nf(st)} ${esc(p.unit || "")}</span>`}${p.recipe && st !== Infinity ? `<div class="muted" style="font-size:.75rem">bisa dibuat ${nf(st)}</div>` : ""}</td>
-    <td class="r" style="white-space:nowrap"><button class="btn sm" data-a="editprod" data-id="${p.id}">Ubah</button> <button class="btn sm danger" data-a="delprod" data-id="${p.id}" aria-label="Hapus ${esc(p.name)}">Hapus</button></td></tr>`; }).join("") || `<tr><td colspan="7" class="empty">Belum ada produk.</td></tr>`}
+    <td class="r" style="white-space:nowrap"><button class="btn sm" data-a="editprod" data-id="${p.id}">Ubah</button> <button class="btn sm danger" data-a="delprod" data-id="${p.id}" aria-label="Hapus ${esc(p.name)}">Hapus</button></td></tr>`; }).join("") || `<tr><td colspan="${feat("cost") ? 7 : 5}" class="empty">Belum ada produk.</td></tr>`}
   </tbody></table></div>`;
 };
 inputs.prodq = el => { prodQ = el.value; render(); };
 actions.prodcat = el => { prodCat = el.dataset.v; render(); };
 actions.prodscan = () => openCamera(code => { prodQ = code; closeModal(); }, "Cari produk dari barcode");
 
+// Product categories come from Settings; old products keep their own category in the list.
+const catList = extra => { const c = (S.settings && S.settings.categories) || []; return extra && !c.includes(extra) ? [...c, extra] : c; };
+actions.gocats = () => { S.ui.view = "settings"; S.ui.modal = null; render(); const x = document.getElementById("setcats"); if (x) x.scrollIntoView({ block: "start" }); };
 function prodModal(p) {
   const t = S.tenant, retail = !isFnb(t), units = (p && p.units) || [], recipe = (p && p.recipe) || [];
   const ings = S.data.products.filter(x => x.id !== (p && p.id) && x.track !== false && !x.recipe);
-  const st = p ? S.data.stock[p.id] : undefined;
+  const st = p ? S.data.stock[p.id] : undefined, cats = catList(p && p.cat);
+  // Show what this business uses, plus anything this product already has filled in.
+  const f = { ...featuresOf(S.settings, t.type) };
+  if (p) Object.assign(f, { cost: f.cost || !!p.cost, barcode: f.barcode || !!p.sku, expiry: f.expiry || !!p.exp, wholesale: f.wholesale || !!p.whole, units: f.units || !!units.length, mods: f.mods || !!p.mods, recipe: f.recipe || !!recipe.length });
   return () => `<div class="spread"><h2>${p ? "Ubah produk" : "Produk baru"}</h2><button class="btn sm" type="button" data-a="close">Tutup</button></div>
   <form class="stack" data-form="prod" data-id="${p ? p.id : ""}">
     <div class="field"><label for="pn">Nama produk</label><input class="input" id="pn" name="name" required value="${p ? esc(p.name) : ""}"></div>
-    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="pc">Kategori</label><input class="input" id="pc" name="cat" required value="${p ? esc(p.cat) : ""}" placeholder="mis. Kopi, Sembako" list="catlist"><datalist id="catlist">${[...new Set(S.data.products.map(x => x.cat))].map(c => `<option value="${esc(c)}">`).join("")}</datalist></div>
+    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="pc">Kategori</label>${cats.length ? `<select class="input" id="pc" name="cat" required>${p ? "" : `<option value="">Pilih kategori</option>`}${cats.map(c => `<option ${p && p.cat === c ? "selected" : ""}>${esc(c)}</option>`).join("")}</select>` : `<input class="input" id="pc" name="cat" required value="${p ? esc(p.cat) : ""}" placeholder="mis. Kopi, Sembako">`}
+        ${me().role === "owner" ? `<button class="linkish" type="button" data-a="gocats" style="font-size:.78rem">Atur daftar kategori di Pengaturan</button>` : ""}</div>
       <div class="field" style="width:110px"><label for="pu">Satuan dasar</label><input class="input" id="pu" name="unit" value="${p ? esc(p.unit || "pcs") : retail ? "pcs" : "porsi"}"></div></div>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="pp">Harga jual</label><input class="input num" id="pp" name="price" type="number" min="0" value="${p ? p.price : ""}" placeholder="0"></div>
-      <div class="field" style="flex:1"><label for="pm">Modal per ${p ? esc(p.unit || "pcs") : "satuan"}</label><input class="input num" id="pm" name="cost" type="number" min="0" step="any" value="${p ? p.cost || 0 : ""}" placeholder="0"></div></div>
-    <div class="row"><label class="row" style="gap:.35rem"><input type="checkbox" name="track" value="1" ${!p || p.track !== false ? "checked" : ""}> Lacak stok</label>
-      <label class="row" style="gap:.35rem"><input type="checkbox" name="ingredient" value="1" ${p && p.ingredient ? "checked" : ""}> Bahan baku (tidak dijual di kasir)</label></div>
+      ${f.cost ? `<div class="field" style="flex:1"><label for="pm">Modal per ${p ? esc(p.unit || "pcs") : "satuan"}</label><input class="input num" id="pm" name="cost" type="number" min="0" step="any" value="${p ? p.cost || 0 : ""}" placeholder="0"></div>` : ""}</div>
+    <div class="row"><label class="row" style="gap:.35rem"><input type="checkbox" name="track" value="1" ${p ? (p.track !== false ? "checked" : "") : f.track ? "checked" : ""}> Lacak stok</label>
+      ${f.recipe || (p && p.ingredient) ? `<label class="row" style="gap:.35rem"><input type="checkbox" name="ingredient" value="1" ${p && p.ingredient ? "checked" : ""}> Bahan baku (tidak dijual di kasir)</label>` : ""}</div>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="ps">Stok di ${esc(outletName(S.outlet))}</label><input class="input num" id="ps" name="stock" type="number" step="any" value="${st !== undefined ? st : ""}" placeholder="${p ? "" : "0"}"><span class="muted" style="font-size:.78rem">Perubahan tercatat di riwayat stok.</span></div>
       <div class="field" style="flex:1"><label for="pms">Peringatan stok minimum</label><input class="input num" id="pms" name="minStock" type="number" min="0" value="${p && p.minStock ? p.minStock : ""}" placeholder="10"></div></div>
-    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="pb">Barcode</label><div class="row" style="flex-wrap:nowrap"><input class="input num" id="pb" name="sku" value="${p && p.sku ? esc(p.sku) : ""}" placeholder="scan atau ketik"><button class="btn" type="button" data-a="skuscan" data-t="pb" aria-label="Scan barcode">Scan</button></div></div>
-      <div class="field" style="flex:1"><label for="pe">Kedaluwarsa</label><input class="input" id="pe" name="exp" type="date" value="${p && p.exp ? isoDay(p.exp) : ""}"></div></div>
-    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="pwm">Grosir mulai (satuan dasar)</label><input class="input num" id="pwm" name="wmin" type="number" min="0" value="${p && p.whole ? p.whole.min : ""}" placeholder="opsional"></div>
-      <div class="field" style="flex:1"><label for="pwp">Harga grosir</label><input class="input num" id="pwp" name="wprice" type="number" min="0" value="${p && p.whole ? p.whole.price : ""}"></div></div>
-    <details ${units.length ? "open" : ""}><summary style="font-weight:600;cursor:pointer">Satuan bertingkat (pak, dus)</summary>
+    ${f.barcode || f.expiry ? `<div class="row" style="flex-wrap:nowrap">${f.barcode ? `<div class="field" style="flex:1"><label for="pb">Barcode</label><div class="row" style="flex-wrap:nowrap"><input class="input num" id="pb" name="sku" value="${p && p.sku ? esc(p.sku) : ""}" placeholder="scan atau ketik"><button class="btn" type="button" data-a="skuscan" data-t="pb" aria-label="Scan barcode">Scan</button></div></div>` : ""}
+      ${f.expiry ? `<div class="field" style="flex:1"><label for="pe">Kedaluwarsa</label><input class="input" id="pe" name="exp" type="date" value="${p && p.exp ? isoDay(p.exp) : ""}"></div>` : ""}</div>` : ""}
+    ${f.wholesale ? `<div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="pwm">Grosir mulai (satuan dasar)</label><input class="input num" id="pwm" name="wmin" type="number" min="0" value="${p && p.whole ? p.whole.min : ""}" placeholder="opsional"></div>
+      <div class="field" style="flex:1"><label for="pwp">Harga grosir</label><input class="input num" id="pwp" name="wprice" type="number" min="0" value="${p && p.whole ? p.whole.price : ""}"></div></div>` : ""}
+    ${f.units ? `<details ${units.length ? "open" : ""}><summary style="font-weight:600;cursor:pointer">Satuan bertingkat (pak, dus)</summary>
       <div class="stack" style="gap:.4rem;margin-top:.5rem"><span class="muted" style="font-size:.8rem">Isi = berapa satuan dasar dalam satu kemasan. Stok selalu dihitung dalam satuan dasar.</span>
-      ${[0, 1, 2].map(i => { const x = units[i] || {}; return `<div class="row" style="flex-wrap:nowrap;gap:.35rem"><input class="input" name="uname" value="${esc(x.name || "")}" placeholder="${["pak", "dus", "bal"][i]}" aria-label="Nama satuan"><input class="input num" name="uqty" type="number" min="2" value="${x.qty || ""}" placeholder="isi" aria-label="Isi" style="max-width:80px"><input class="input num" name="uprice" type="number" min="0" value="${x.price || ""}" placeholder="harga" aria-label="Harga"><input class="input num" id="usku${i}" name="usku" value="${esc(x.sku || "")}" placeholder="barcode" aria-label="Barcode satuan"></div>`; }).join("")}</div></details>
-    <details ${p && p.mods ? "open" : ""}><summary style="font-weight:600;cursor:pointer">Pilihan / varian menu</summary>
-      <div class="field" style="margin-top:.5rem"><label for="pmod">Satu baris per pilihan, format "Nama: opsi, opsi"</label><textarea class="input" id="pmod" name="mods" rows="3" placeholder="Gula: Normal, Kurang, Tanpa&#10;Es: Normal, Sedikit">${p && p.mods ? esc(p.mods.map(m => m.name + ": " + m.opts.join(", ")).join("\n")) : ""}</textarea></div></details>
-    <details ${recipe.length ? "open" : ""}><summary style="font-weight:600;cursor:pointer">Resep (potong stok bahan baku)</summary>
+      ${[0, 1, 2].map(i => { const x = units[i] || {}; return `<div class="row" style="flex-wrap:nowrap;gap:.35rem"><input class="input" name="uname" value="${esc(x.name || "")}" placeholder="${["pak", "dus", "bal"][i]}" aria-label="Nama satuan"><input class="input num" name="uqty" type="number" min="2" value="${x.qty || ""}" placeholder="isi" aria-label="Isi" style="max-width:80px"><input class="input num" name="uprice" type="number" min="0" value="${x.price || ""}" placeholder="harga" aria-label="Harga"><input class="input num" id="usku${i}" name="usku" value="${esc(x.sku || "")}" placeholder="barcode" aria-label="Barcode satuan"></div>`; }).join("")}</div></details>` : ""}
+    ${f.mods ? `<details ${p && p.mods ? "open" : ""}><summary style="font-weight:600;cursor:pointer">Pilihan / varian menu</summary>
+      <div class="field" style="margin-top:.5rem"><label for="pmod">Satu baris per pilihan, format "Nama: opsi, opsi"</label><textarea class="input" id="pmod" name="mods" rows="3" placeholder="Gula: Normal, Kurang, Tanpa&#10;Es: Normal, Sedikit">${p && p.mods ? esc(p.mods.map(m => m.name + ": " + m.opts.join(", ")).join("\n")) : ""}</textarea></div></details>` : ""}
+    ${f.recipe ? `<details ${recipe.length ? "open" : ""}><summary style="font-weight:600;cursor:pointer">Resep (potong stok bahan baku)</summary>
       <div class="stack" style="gap:.4rem;margin-top:.5rem"><span class="muted" style="font-size:.8rem">Kalau diisi, setiap penjualan mengurangi stok bahan sesuai takaran, bukan stok produk ini.</span>
-      ${ings.length ? [0, 1, 2, 3, 4, 5].map(i => { const r = recipe[i] || {}; return `<div class="row" style="flex-wrap:nowrap;gap:.35rem"><select class="input" name="rpid" aria-label="Bahan"><option value="">–</option>${ings.map(x => `<option value="${x.id}" ${r.pid === x.id ? "selected" : ""}>${esc(x.name)} (${esc(x.unit || "pcs")})</option>`).join("")}</select><input class="input num" name="rqty" type="number" min="0" step="any" value="${r.qty || ""}" placeholder="takaran" aria-label="Takaran" style="max-width:110px"></div>`; }).join("") : `<p class="muted" style="font-size:.85rem">Tambahkan dulu produk bahan baku (centang "Bahan baku"), misalnya Biji kopi (gram) atau Susu (ml).</p>`}</div></details>
+      ${ings.length ? [0, 1, 2, 3, 4, 5].map(i => { const r = recipe[i] || {}; return `<div class="row" style="flex-wrap:nowrap;gap:.35rem"><select class="input" name="rpid" aria-label="Bahan"><option value="">–</option>${ings.map(x => `<option value="${x.id}" ${r.pid === x.id ? "selected" : ""}>${esc(x.name)} (${esc(x.unit || "pcs")})</option>`).join("")}</select><input class="input num" name="rqty" type="number" min="0" step="any" value="${r.qty || ""}" placeholder="takaran" aria-label="Takaran" style="max-width:110px"></div>`; }).join("") : `<p class="muted" style="font-size:.85rem">Tambahkan dulu produk bahan baku (centang "Bahan baku"), misalnya Biji kopi (gram) atau Susu (ml).</p>`}</div></details>` : ""}
     <div class="row"><button class="btn primary" type="submit">Simpan</button><button class="btn" type="button" data-a="close">Batal</button></div>
   </form>`;
 }
@@ -127,8 +135,13 @@ forms.prod = async (d, f) => {
   const mods = String(d.mods || "").split("\n").map(l => { const [n, o] = l.split(":"); return n && o ? { name: n.trim(), opts: o.split(",").map(s => s.trim()).filter(Boolean) } : null; }).filter(m => m && m.opts.length);
   const recipe = arr(d.rpid).map((pid, i) => ({ pid, qty: +arr(d.rqty)[i] })).filter(r => r.pid && r.qty > 0);
   const id = f.dataset.id || uid("p"), old = S.data.products.find(p => p.id === id) || {};
-  const product = { ...old, name: d.name.trim(), cat: d.cat.trim(), unit: (d.unit || "pcs").trim(), price: +d.price || 0, cost: +d.cost || 0, sku: (d.sku || "").trim() || undefined, exp: d.exp ? new Date(d.exp + "T12:00:00").getTime() : undefined,
-    whole: +d.wmin > 1 && +d.wprice > 0 ? { min: +d.wmin, price: +d.wprice } : undefined, units, mods, recipe, track: !!d.track, ingredient: !!d.ingredient, minStock: +d.minStock || undefined };
+  // Fields hidden for this business type keep whatever the product already had.
+  const has = k => !!f.querySelector(`[name="${k}"]`);
+  const product = { ...old, name: d.name.trim(), cat: d.cat.trim(), unit: (d.unit || "pcs").trim(), price: +d.price || 0, cost: has("cost") ? +d.cost || 0 : old.cost || 0,
+    sku: has("sku") ? (d.sku || "").trim() || undefined : old.sku, exp: has("exp") ? (d.exp ? new Date(d.exp + "T12:00:00").getTime() : undefined) : old.exp,
+    whole: has("wmin") ? (+d.wmin > 1 && +d.wprice > 0 ? { min: +d.wmin, price: +d.wprice } : undefined) : old.whole,
+    units: has("uname") ? units : old.units, mods: has("mods") ? mods : old.mods, recipe: has("rpid") ? recipe : old.recipe,
+    track: !!d.track, ingredient: has("ingredient") ? !!d.ingredient : !!old.ingredient, minStock: +d.minStock || undefined };
   const r = await api("PUT", "products/" + encodeURIComponent(id), { product, stock: d.stock === "" ? undefined : +d.stock, outlet: S.outlet });
   const i = S.data.products.findIndex(p => p.id === id); if (i >= 0) S.data.products[i] = r.product; else S.data.products.push(r.product);
   if (r.stock !== null && r.stock !== undefined) S.data.stock[id] = r.stock;
@@ -387,16 +400,24 @@ forms.outlet = async (d, f) => { const id = f.dataset.id || uid("o"); const r = 
 views.settings = (u, t) => {
   const s = S.settings, loy = s.loyalty || {}, mt = s.midtrans || {};
   const tablesText = (s.tables || []).map(x => x.name + (x.area && x.area !== "Dalam" ? ", " + x.area : "")).join("\n");
-  return `<div><h1>Pengaturan</h1><p class="muted">Data usaha, struk, pajak, meja, poin member, dan pembayaran QRIS.</p></div>
+  return `<div><h1>Pengaturan</h1><p class="muted">Data usaha, jenis usaha &amp; fitur, kategori, struk, pajak, meja, poin member, dan pembayaran QRIS.</p></div>
   <form class="panel stack" data-form="setbiz"><h2>Usaha & struk</h2>
-    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:2"><label for="sbn">Nama usaha</label><input class="input" id="sbn" name="name" required value="${esc(t.name)}"></div><div class="field" style="flex:1"><span class="label">Jenis</span><b>${esc(t.type)}</b></div></div>
+    <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:2"><label for="sbn">Nama usaha</label><input class="input" id="sbn" name="name" required value="${esc(t.name)}"></div><div class="field" style="flex:1"><span class="label">Jenis usaha</span><b>${esc(PROFILES[profileOf(s, t.type)].name)}</b></div></div>
     <div class="field"><label for="sba">Alamat di struk</label><input class="input" id="sba" name="address" value="${esc(s.address || "")}" placeholder="${esc(t.city)}"></div>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="sbp">Telepon di struk</label><input class="input" id="sbp" name="phone" value="${esc(s.phone || "")}"></div><div class="field" style="flex:2"><label for="sbf">Pesan penutup struk</label><input class="input" id="sbf" name="receiptFooter" value="${esc(s.receiptFooter || "")}" placeholder="Terima kasih"></div></div>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="sbt">Pajak PB1/PPN (%)</label><input class="input num" id="sbt" name="tax" type="number" min="0" max="30" step="0.5" value="${t.tax}"></div><div class="field" style="flex:1"><label for="sbs">Service charge (%)</label><input class="input num" id="sbs" name="service" type="number" min="0" max="30" step="0.5" value="${s.service || 0}"></div></div>
     <label class="row" style="gap:.35rem"><input type="checkbox" name="requireShift" value="1" ${s.requireShift ? "checked" : ""}> Wajib buka shift (modal kas) sebelum kasir menerima pembayaran</label>
     <div><button class="btn primary" type="submit">Simpan</button></div></form>
-  <form class="panel stack" data-form="settables"><h2>Meja</h2><p class="muted" style="font-size:.9rem">Satu baris per meja, format "nama, area". Contoh: "5, Teras". Isi "1-10, Dalam" untuk membuat meja 1 sampai 10 sekaligus.</p>
-    <textarea class="input num" name="tables" rows="6">${esc(tablesText)}</textarea><div><button class="btn primary" type="submit">Simpan meja (${(s.tables || []).length})</button></div></form>
+  <form class="panel stack" data-form="setfeat"><h2>Jenis usaha & fitur</h2>
+    <p class="muted" style="font-size:.9rem">Fitur menyesuaikan jenis usaha. Yang dimatikan disembunyikan dari form produk dan menu, datanya tetap tersimpan.</p>
+    <div class="field"><label for="sfp">Jenis usaha</label><select class="input" id="sfp" name="biz" data-ch="bizprof">${Object.entries(PROFILES).map(([k, x]) => `<option value="${k}" ${profileOf(s, t.type) === k ? "selected" : ""}>${esc(x.name)}</option>`).join("")}</select>
+      <span class="muted" style="font-size:.78rem">Mengganti jenis usaha mengisi ulang pilihan fitur di bawah sesuai jenisnya. Simpan untuk menerapkan.</span></div>
+    <div class="featgrid">${Object.entries(FEATURES).map(([k, [l, h]]) => `<label class="featopt"><input type="checkbox" name="f_${k}" value="1" ${feat(k) ? "checked" : ""}><span><b>${esc(l)}</b><span class="muted">${esc(h)}</span></span></label>`).join("")}</div>
+    <div><button class="btn primary" type="submit">Simpan fitur</button></div></form>
+  <form class="panel stack" data-form="setcats" id="setcats"><h2>Kategori produk</h2><p class="muted" style="font-size:.9rem">Satu baris per kategori. Daftar ini muncul sebagai pilihan saat menambah produk, urutannya sama dengan di kasir.</p>
+    <textarea class="input" name="categories" rows="6">${esc((s.categories || []).join("\n"))}</textarea><div><button class="btn primary" type="submit">Simpan kategori (${(s.categories || []).length})</button></div></form>
+  ${feat("tables") ? `<form class="panel stack" data-form="settables"><h2>Meja</h2><p class="muted" style="font-size:.9rem">Satu baris per meja, format "nama, area". Contoh: "5, Teras". Isi "1-10, Dalam" untuk membuat meja 1 sampai 10 sekaligus.</p>
+    <textarea class="input num" name="tables" rows="6">${esc(tablesText)}</textarea><div><button class="btn primary" type="submit">Simpan meja (${(s.tables || []).length})</button></div></form>` : ""}
   <form class="panel stack" data-form="setloy"><h2>Poin member</h2>
     <label class="row" style="gap:.35rem"><input type="checkbox" name="enabled" value="1" ${loy.enabled ? "checked" : ""}> Aktifkan poin member</label>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="sle">Dapat 1 poin setiap belanja (Rp)</label><input class="input num" id="sle" name="earnPer" type="number" min="1000" value="${loy.earnPer || 10000}"></div><div class="field" style="flex:1"><label for="slv">Nilai 1 poin saat ditukar (Rp)</label><input class="input num" id="slv" name="pointValue" type="number" min="1" value="${loy.pointValue || 100}"></div></div>
@@ -425,6 +446,13 @@ forms.settables = d => {
   }
   return saveSettings({ tables }, tables.length + " meja disimpan");
 };
+changes.bizprof = el => { const f = PROFILES[el.value].features; for (const k in f) { const x = el.form.querySelector(`[name="f_${k}"]`); if (x) x.checked = f[k]; } };
+forms.setfeat = d => {
+  const features = Object.fromEntries(Object.keys(FEATURES).map(k => [k, !!d["f_" + k]]));
+  const tables = features.tables && !(S.settings.tables || []).length ? Array.from({ length: 10 }, (_, i) => ({ id: "m" + (i + 1), name: String(i + 1), area: "Dalam" })) : undefined;
+  return saveSettings({ biz: d.biz, features, ...(tables ? { tables } : {}) }, "Jenis usaha & fitur disimpan");
+};
+forms.setcats = d => { const categories = [...new Set(String(d.categories || "").split("\n").map(x => x.trim()).filter(Boolean))]; return saveSettings({ categories }, categories.length + " kategori disimpan"); };
 forms.setloy = d => saveSettings({ loyalty: { enabled: !!d.enabled, earnPer: +d.earnPer, pointValue: +d.pointValue } });
 forms.setmt = d => saveSettings({ midtrans: { ...(d.serverKey ? { serverKey: d.serverKey.trim() } : {}), production: !!d.production } }, "Pengaturan Midtrans disimpan");
 actions.mtclear = () => saveSettings({ midtrans: { serverKey: "", clientKey: "" } }, "Midtrans diputus");
