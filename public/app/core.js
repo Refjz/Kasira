@@ -22,7 +22,7 @@ export function applyPlans(plans) {
 
 export const S = {
   booting: true, offline: false, session: null, tenant: null, staff: [], outlets: [], settings: null, outlet: "main",
-  data: { products: [], stock: {}, transactions: [], bills: [], kitchen: [], customers: [], promos: [], suppliers: [], shift: null },
+  data: { products: [], stock: {}, transactions: [], bills: [], kitchen: [], customers: [], promos: [], suppliers: [], shift: null, orders: [] },
   admin: { tenants: [], transactions: [] },
   ui: { view: null, modal: null }
 };

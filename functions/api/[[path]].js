@@ -5,6 +5,7 @@
 // optional RESEND_API_KEY + MAIL_FROM (password-reset email).
 import { priceOrder, stockEffects, lineKey } from "../../public/app/pricing.js";
 import { PROFILES, FEATURES, profileOf, featuresOf } from "../../public/app/biz.js";
+import { EXPENSE_CATS, TAX_MODES } from "../../public/app/books.js";
 
 const DAY = 86400000;
 const TRIAL_DAYS = 7;
@@ -118,12 +119,14 @@ const isManager = sess => MANAGERS.includes(sess.user.role);
 const DEFAULT_SETTINGS = {
   address: "", phone: "", receiptFooter: "Terima kasih, sampai jumpa lagi!", service: 0, requireShift: true,
   tables: [], loyalty: { enabled: false, earnPer: 10000, pointValue: 100 },
-  midtrans: { serverKey: "", clientKey: "", production: false }
+  midtrans: { serverKey: "", clientKey: "", production: false },
+  books: { taxMode: "op" }, order: { enabled: false, token: "", takeaway: true }
 };
 async function getSettings(env, tid) {
   const r = await env.DB.prepare("SELECT data FROM settings WHERE tenant_id = ?").bind(tid).first();
   const s = r ? parse(r.data) : {};
-  return { ...DEFAULT_SETTINGS, ...s, loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(s.loyalty || {}) }, midtrans: { ...DEFAULT_SETTINGS.midtrans, ...(s.midtrans || {}) } };
+  return { ...DEFAULT_SETTINGS, ...s, loyalty: { ...DEFAULT_SETTINGS.loyalty, ...(s.loyalty || {}) }, midtrans: { ...DEFAULT_SETTINGS.midtrans, ...(s.midtrans || {}) },
+    books: { ...DEFAULT_SETTINGS.books, ...(s.books || {}) }, order: { ...DEFAULT_SETTINGS.order, ...(s.order || {}) } };
 }
 // Profile, features and categories, filled in from the tenant's type for accounts made before they existed.
 function bizSettings(s, type) {
@@ -277,10 +280,14 @@ on("POST", "signup", async ({ env, body }) => {
   if (!name || !business || !city) fail(400, "Lengkapi nama, nama usaha, dan kota");
   if (env.OWNER_EMAIL && email === normEmail(env.OWNER_EMAIL)) fail(400, "Email ini khusus Pemilik Aplikasi. Pakai halaman aktivasi pemilik.");
   if (await env.DB.prepare("SELECT 1 FROM users WHERE email = ?").bind(email).first()) fail(409, "Email sudah terdaftar. Silakan masuk.");
+  // A referral code from another business adds extra trial days.
+  const code = normRef(body.ref);
+  const ref = code ? await env.DB.prepare("SELECT tenant_id FROM ref_codes WHERE code = ?").bind(code).first() : null;
+  if (code && !ref) fail(400, "Kode referral tidak ditemukan. Cek lagi atau kosongkan.");
   const now = Date.now(), tid = newId("t"), uid = newId("u"), salt = randHex(16);
   const stmts = [
     env.DB.prepare("INSERT INTO tenants (id, name, type, city, tax, plan, status, trial_ends, paid_until, created) VALUES (?, ?, ?, ?, ?, 'bulanan', 'aktif', ?, 0, ?)")
-      .bind(tid, business, type, city, type === "F&B" ? 10 : 0, now + TRIAL_DAYS * DAY, now),
+      .bind(tid, business, type, city, type === "F&B" ? 10 : 0, now + (TRIAL_DAYS + (ref ? REF_TRIAL_DAYS : 0)) * DAY, now),
     env.DB.prepare("INSERT INTO users (id, email, name, role, tenant_id, pass_hash, pass_salt, created) VALUES (?, ?, ?, 'owner', ?, ?, ?, ?)")
       .bind(uid, email, name, tid, await hashPassword(body.password, salt), salt, now),
     env.DB.prepare("INSERT INTO outlets (tenant_id, id, data) VALUES (?, ?, ?)").bind(tid, MAIN, JSON.stringify({ id: MAIN, name: "Outlet utama", address: city, created: now })),
@@ -294,6 +301,7 @@ on("POST", "signup", async ({ env, body }) => {
     stmts.push(env.DB.prepare("INSERT INTO products (tenant_id, id, data) VALUES (?, ?, ?)").bind(tid, id, JSON.stringify(p)));
     if (p.track && sp.stock) stmts.push(stockStmt(env, tid, MAIN, id, sp.stock));
   }
+  if (ref) stmts.push(env.DB.prepare("INSERT INTO ref_links (tenant_id, ref_tenant_id, created) VALUES (?, ?, ?)").bind(tid, ref.tenant_id, now));
   await env.DB.batch(stmts);
   return json({ ok: true }, 200, { "set-cookie": await startSession(env, uid) });
 });
@@ -425,7 +433,7 @@ on("GET", "data", async ({ env, sess, url }) => {
   const since = Date.now() - 30 * DAY;
   const mine = sess.user.role === "cashier";
   const q = (sql, ...b) => env.DB.prepare(sql).bind(...b).all().then(r => r.results);
-  const [prods, stock, trx, bills, kitchen, customers, promos, suppliers, shift] = await Promise.all([
+  const [prods, stock, trx, bills, kitchen, customers, promos, suppliers, shift, orders] = await Promise.all([
     loadProducts(env, t.id),
     stockMap(env, t.id, outlet),
     all ? q("SELECT data FROM transactions WHERE tenant_id = ? AND time > ? ORDER BY time DESC LIMIT 5000", t.id, since)
@@ -435,12 +443,13 @@ on("GET", "data", async ({ env, sess, url }) => {
     q("SELECT data FROM customers WHERE tenant_id = ? LIMIT 5000", t.id),
     q("SELECT data FROM promos WHERE tenant_id = ?", t.id),
     isManager(sess) ? q("SELECT data FROM suppliers WHERE tenant_id = ?", t.id) : Promise.resolve([]),
-    env.DB.prepare("SELECT * FROM shifts WHERE tenant_id = ? AND user_id = ? AND closed IS NULL ORDER BY opened DESC LIMIT 1").bind(t.id, sess.user.id).first()
+    env.DB.prepare("SELECT * FROM shifts WHERE tenant_id = ? AND user_id = ? AND closed IS NULL ORDER BY opened DESC LIMIT 1").bind(t.id, sess.user.id).first(),
+    pendingOrders(env, t.id, outlet)
   ]);
   return json({
     outlet, products: [...prods.values()], stock, transactions: trx.map(r => parse(r.data)), bills: bills.map(r => parse(r.data)),
     kitchen: kitchen.map(r => ({ ...parse(r.data), id: r.id, status: r.status })), customers: customers.map(r => parse(r.data)),
-    promos: promos.map(r => parse(r.data)), suppliers: suppliers.map(r => parse(r.data)), shift: shift ? shiftOut(shift) : null
+    promos: promos.map(r => parse(r.data)), suppliers: suppliers.map(r => parse(r.data)), shift: shift ? shiftOut(shift) : null, orders
   });
 });
 
@@ -683,9 +692,8 @@ on("GET", "shifts", async ({ env, sess, url }) => {
 });
 
 /* ---------- open bills, tables, kitchen ---------- */
-on("POST", "bills", async ({ env, sess, body }) => {
-  const t = requireTenant(sess);
-  const outlet = await resolveOutlet(env, sess, body.outlet);
+// Add lines to an open bill (or open a new one) and return the statements that save it and send new lines to the kitchen.
+async function billStmts(env, t, by, outlet, body) {
   const products = await loadProducts(env, t.id);
   const add = (Array.isArray(body.lines) ? body.lines : []).map(l => {
     const p = products.get(String(l.pid)); if (!p) return null;
@@ -699,12 +707,13 @@ on("POST", "bills", async ({ env, sess, body }) => {
     bill = parse(r.data);
   } else {
     if (!add.length) fail(400, "Tambahkan menu dulu");
-    bill = { id: newId("B"), outletId: outlet, created: Date.now(), by: sess.user.name, lines: [] };
+    bill = { id: newId("B"), outletId: outlet, created: Date.now(), by, lines: [] };
   }
   if (body.table !== undefined) bill.table = str(body.table, 20) || undefined;
   if (body.orderType) bill.orderType = ["Makan di sini", "Bawa pulang", "Ojol"].includes(body.orderType) ? body.orderType : "Makan di sini";
   if (body.label !== undefined) bill.label = str(body.label, 40) || undefined;
   if (body.customerId !== undefined) bill.customerId = body.customerId || undefined;
+  if (body.source) bill.source = body.source;
   if (bill.table) {
     const clash = (await env.DB.prepare("SELECT data FROM bills WHERE tenant_id = ? AND outlet_id = ? AND status = 'open' AND id != ?").bind(t.id, outlet, bill.id).all()).results.map(r => parse(r.data)).find(b => b.table === bill.table);
     if (clash) fail(409, "Meja " + bill.table + " sudah punya pesanan terbuka");
@@ -715,7 +724,14 @@ on("POST", "bills", async ({ env, sess, body }) => {
   }
   bill.updated = Date.now();
   const stmts = [env.DB.prepare("INSERT INTO bills (tenant_id, id, outlet_id, status, updated, data) VALUES (?, ?, ?, 'open', ?, ?) ON CONFLICT (tenant_id, id) DO UPDATE SET data = excluded.data, updated = excluded.updated").bind(t.id, bill.id, bill.outletId || outlet, bill.updated, JSON.stringify(bill))];
-  if (add.length && t.type === "F&B" && featuresOf(await getSettings(env, t.id), t.type).kitchen) stmts.push(kitchenStmt(env, t.id, bill.outletId || outlet, { id: newId("K"), ref: bill.id, time: Date.now(), table: bill.table, label: bill.label, orderType: bill.orderType, by: sess.user.name, lines: add.map(l => ({ name: l.name, qty: l.qty, mods: l.mods, note: l.note })) }));
+  if (add.length && t.type === "F&B" && featuresOf(await getSettings(env, t.id), t.type).kitchen) stmts.push(kitchenStmt(env, t.id, bill.outletId || outlet, { id: newId("K"), ref: bill.id, time: Date.now(), table: bill.table, label: bill.label, orderType: bill.orderType, by, lines: add.map(l => ({ name: l.name, qty: l.qty, mods: l.mods, note: l.note })) }));
+  return { bill, stmts };
+}
+
+on("POST", "bills", async ({ env, sess, body }) => {
+  const t = requireTenant(sess);
+  const outlet = await resolveOutlet(env, sess, body.outlet);
+  const { bill, stmts } = await billStmts(env, t, sess.user.name, outlet, { ...body, source: undefined });
   await env.DB.batch(stmts);
   return json({ bill });
 });
@@ -921,8 +937,9 @@ on("GET", "reports", async ({ env, sess, url }) => {
   const from = +url.searchParams.get("from") || Date.now() - 7 * DAY, to = +url.searchParams.get("to") || Date.now();
   if (to - from > 400 * DAY) fail(400, "Rentang maksimal 1 tahun");
   const outletQ = url.searchParams.get("outlet") || "all";
+  const outletId = outletQ === "all" ? null : await resolveOutlet(env, sess, outletQ);
   let sql = "SELECT data FROM transactions WHERE tenant_id = ? AND time >= ? AND time <= ?", b = [t.id, from, to];
-  if (outletQ !== "all") { sql += " AND COALESCE(json_extract(data, '$.outletId'), 'main') = ?"; b.push(await resolveOutlet(env, sess, outletQ)); }
+  if (outletId) { sql += " AND COALESCE(json_extract(data, '$.outletId'), 'main') = ?"; b.push(outletId); }
   const trx = (await env.DB.prepare(sql + " ORDER BY time LIMIT 50000").bind(...b).all()).results.map(r => parse(r.data));
   const tzOffset = 7 * 3600000; // WIB
   const R = { count: 0, gross: 0, discount: 0, service: 0, tax: 0, refunds: 0, net: 0, cost: 0, profit: 0, items: 0, byDay: {}, byHour: {}, byMethod: {}, byCashier: {}, byProduct: {}, byCategory: {}, byOutlet: {}, voids: [] };
@@ -948,8 +965,244 @@ on("GET", "reports", async ({ env, sess, url }) => {
   const taxes = R.tax + R.service;
   R.profit = Math.round(R.net - taxes - R.cost);
   R.cost = Math.round(R.cost);
+  // Operating expenses turn gross profit into net profit.
+  const exp = (await env.DB.prepare("SELECT data FROM expenses WHERE tenant_id = ? AND time >= ? AND time <= ?" + (outletId ? " AND outlet_id = ?" : "")).bind(...(outletId ? [t.id, from, to, outletId] : [t.id, from, to])).all()).results.map(r => parse(r.data));
+  R.expenses = 0; R.byExpense = {};
+  for (const e of exp) { R.expenses += e.amount; R.byExpense[e.cat] = (R.byExpense[e.cat] || 0) + e.amount; }
+  R.netProfit = R.profit - R.expenses;
   const shifts = (await env.DB.prepare("SELECT * FROM shifts WHERE tenant_id = ? AND opened >= ? AND opened <= ? ORDER BY opened").bind(t.id, from, to).all()).results.map(s => ({ ...shiftOut(s), summary: parse(s.data).summary || null }));
   return json({ from, to, report: R, shifts });
+});
+
+/* ---------- bookkeeping: expenses and UMKM tax ---------- */
+const WIB = 7 * 3600000;
+on("GET", "expenses", async ({ env, sess, url }) => {
+  const t = requireTenant(sess, { roles: MANAGERS });
+  const from = +url.searchParams.get("from") || Date.now() - 30 * DAY, to = +url.searchParams.get("to") || Date.now();
+  if (to - from > 400 * DAY) fail(400, "Rentang maksimal 1 tahun");
+  const outletQ = url.searchParams.get("outlet") || "all";
+  const outletId = outletQ === "all" ? null : await resolveOutlet(env, sess, outletQ);
+  const rows = (await env.DB.prepare("SELECT data FROM expenses WHERE tenant_id = ? AND time >= ? AND time <= ?" + (outletId ? " AND outlet_id = ?" : "") + " ORDER BY time DESC LIMIT 2000")
+    .bind(...(outletId ? [t.id, from, to, outletId] : [t.id, from, to])).all()).results;
+  return json({ expenses: rows.map(r => parse(r.data)) });
+});
+
+on("PUT", "expenses/:id", async ({ env, sess, body, params }) => {
+  const t = requireTenant(sess, { roles: MANAGERS });
+  const id = okId(params.id), e = body.expense || {};
+  const amount = Math.round(num(e.amount, 0, 1e11)); if (!amount) fail(400, "Isi jumlah pengeluaran");
+  const outlet = await resolveOutlet(env, sess, e.outlet);
+  const old = await env.DB.prepare("SELECT data FROM expenses WHERE tenant_id = ? AND id = ?").bind(t.id, id).first().then(r => r ? parse(r.data) : null);
+  const clean = {
+    id, time: +e.time > 0 && +e.time <= Date.now() + DAY ? Math.round(+e.time) : Date.now(), outletId: outlet,
+    cat: EXPENSE_CATS.includes(e.cat) ? e.cat : "Lainnya", amount, method: METHODS.includes(e.method) ? e.method : "Tunai", note: str(e.note, 160) || undefined,
+    by: old ? old.by : sess.user.name, created: old ? old.created : Date.now()
+  };
+  await env.DB.prepare("INSERT INTO expenses (tenant_id, id, time, outlet_id, data) VALUES (?, ?, ?, ?, ?) ON CONFLICT (tenant_id, id) DO UPDATE SET time = excluded.time, outlet_id = excluded.outlet_id, data = excluded.data")
+    .bind(t.id, id, clean.time, outlet, JSON.stringify(clean)).run();
+  return json({ expense: clean });
+});
+
+on("DELETE", "expenses/:id", async ({ env, sess, params }) => {
+  const t = requireTenant(sess, { roles: MANAGERS });
+  await env.DB.prepare("DELETE FROM expenses WHERE tenant_id = ? AND id = ?").bind(t.id, params.id).run();
+  return json({ ok: true });
+});
+
+// Gross turnover and expenses per month (WIB) of one year, for the UMKM final tax estimate. All outlets.
+on("GET", "books/tax", async ({ env, sess, url }) => {
+  const t = requireTenant(sess, { roles: MANAGERS });
+  const year = Math.min(Math.max(Math.floor(+url.searchParams.get("year")) || new Date(Date.now() + WIB).getUTCFullYear(), 2000), 2100);
+  const from = Date.UTC(year, 0, 1) - WIB, to = Date.UTC(year + 1, 0, 1) - WIB;
+  const month = "CAST(strftime('%m', (time + ?) / 1000, 'unixepoch') AS INTEGER)";
+  // The total column is net of refunds; leave out the PB1/PPN collected for the government.
+  const sales = (await env.DB.prepare(`SELECT ${month} AS m, COUNT(*) AS n, SUM(CASE WHEN json_extract(data, '$.total') > 0 THEN total * (1.0 - COALESCE(json_extract(data, '$.tax'), 0) * 1.0 / json_extract(data, '$.total')) ELSE 0 END) AS bruto
+    FROM transactions WHERE tenant_id = ? AND time >= ? AND time < ? GROUP BY m`).bind(WIB, t.id, from, to).all()).results;
+  const exp = (await env.DB.prepare(`SELECT ${month} AS m, SUM(json_extract(data, '$.amount')) AS total FROM expenses WHERE tenant_id = ? AND time >= ? AND time < ? GROUP BY m`).bind(WIB, t.id, from, to).all()).results;
+  const months = Array.from({ length: 12 }, (_, i) => {
+    const sl = sales.find(r => r.m === i + 1) || {}, ex = exp.find(r => r.m === i + 1) || {};
+    return { bruto: Math.round(sl.bruto || 0), count: sl.n || 0, expenses: Math.round(ex.total || 0) };
+  });
+  return json({ year, months });
+});
+
+/* ---------- self-order: table QR code and shared menu link ---------- */
+async function newOrderToken(env, tid) {
+  const token = randHex(8);
+  await env.DB.batch([
+    env.DB.prepare("DELETE FROM order_links WHERE tenant_id = ?").bind(tid),
+    env.DB.prepare("INSERT INTO order_links (token, tenant_id) VALUES (?, ?)").bind(token, tid)
+  ]);
+  return token;
+}
+
+// Make a new link: old QR codes and links stop working.
+on("POST", "order-link/reset", async ({ env, sess }) => {
+  const t = requireTenant(sess, { roles: ["owner"] });
+  const s = await getSettings(env, t.id);
+  s.order.token = await newOrderToken(env, t.id);
+  await saveSettings(env, t.id, s);
+  return json({ settings: settingsOut(s, t.type) });
+});
+
+async function publicTenant(env, token) {
+  token = String(token || "");
+  if (!/^[0-9a-f]{16}$/.test(token)) fail(404, "Menu tidak ditemukan. Minta link atau QR terbaru ke kasir.");
+  const l = await env.DB.prepare("SELECT tenant_id FROM order_links WHERE token = ?").bind(token).first();
+  const t = l ? await env.DB.prepare("SELECT * FROM tenants WHERE id = ?").bind(l.tenant_id).first() : null;
+  if (!t) fail(404, "Menu tidak ditemukan. Minta link atau QR terbaru ke kasir.");
+  const s = await getSettings(env, t.id);
+  if (!s.order.enabled || s.order.token !== token) fail(404, "Pesan online sedang ditutup oleh " + t.name + ".");
+  const a = access(t);
+  if (a !== "trial" && a !== "paid") fail(403, t.name + " sedang tidak menerima pesanan online.");
+  return { t, s };
+}
+async function publicOutlet(env, t, id) {
+  id = id ? String(id) : MAIN;
+  const o = await env.DB.prepare("SELECT data FROM outlets WHERE tenant_id = ? AND id = ?").bind(t.id, id).first();
+  if (o && !parse(o.data).deleted) return parse(o.data);
+  if (id === MAIN) return { id: MAIN, name: "Outlet utama" };
+  fail(404, "Outlet tidak ditemukan");
+}
+// Same rule as the cashier screen: a tracked product, or a recipe ingredient, with nothing left.
+const soldOut = (products, stock) => p => {
+  if (Array.isArray(p.recipe) && p.recipe.length) return p.recipe.some(r => { const i = products.get(r.pid); return i && i.track !== false && (stock[i.id] || 0) < r.qty; });
+  return p.track !== false && (stock[p.id] || 0) <= 0;
+};
+const orderTables = (t, s) => t.type === "F&B" && featuresOf(s, t.type).tables ? (s.tables || []).map(x => x.name) : [];
+const publicOrder = o => ({ id: o.id, no: o.no, time: o.time, status: o.status, reason: o.reason, table: o.table, orderType: o.orderType, name: o.name, lines: o.lines.map(l => ({ name: l.name, qty: l.qty, mods: l.mods, note: l.note, price: l.price })), estimate: o.estimate });
+
+on("GET", "public/menu/:token", async ({ env, params, url }) => {
+  const { t, s } = await publicTenant(env, params.token);
+  const o = await publicOutlet(env, t, url.searchParams.get("o"));
+  const [products, stock] = await Promise.all([loadProducts(env, t.id), stockMap(env, t.id, o.id)]);
+  const sold = soldOut(products, stock);
+  const list = [...products.values()].filter(p => !p.ingredient).map(p => ({ id: p.id, name: p.name, cat: p.cat, price: p.price, mods: p.mods, soldOut: sold(p) }));
+  return json({
+    name: t.name, city: t.city, address: o.address || s.address || t.city, phone: o.phone || s.phone || "", fnb: t.type === "F&B",
+    tax: t.tax, service: s.service, outlet: { id: o.id, name: o.name }, tables: orderTables(t, s), takeaway: s.order.takeaway !== false || t.type !== "F&B",
+    categories: bizSettings(s, t.type).categories, products: list
+  });
+});
+
+on("POST", "public/order/:token", async ({ env, params, body }) => {
+  const { t, s } = await publicTenant(env, params.token);
+  const o = await publicOutlet(env, t, body.outlet);
+  const fnb = t.type === "F&B", tables = orderTables(t, s);
+  const table = str(body.table, 20);
+  if (table && !tables.includes(table)) fail(400, "Meja " + table + " tidak ditemukan. Scan ulang QR di meja.");
+  if (!table && fnb && s.order.takeaway === false) fail(400, "Scan QR di mejamu untuk memesan.");
+  const name = str(body.name, 40); if (!name) fail(400, "Tulis nama kamu supaya kasir bisa memanggil");
+  const phone = body.phone ? normPhone(body.phone) : "";
+  if (phone && !/^08\d{7,12}$/.test(phone)) fail(400, "Nomor HP tidak valid");
+  const now = Date.now();
+  const busy = await env.DB.prepare("SELECT COUNT(*) AS n, SUM(CASE WHEN json_extract(data, '$.table') = ? THEN 1 ELSE 0 END) AS here FROM orders WHERE tenant_id = ? AND status = 'baru' AND time > ?").bind(table || "-", t.id, now - 3600000).first();
+  if ((busy.n || 0) >= 40 || (table && (busy.here || 0) >= 3)) fail(429, "Masih ada pesanan yang menunggu dikonfirmasi kasir. Tunggu sebentar atau panggil kasir.");
+  const products = await loadProducts(env, t.id), sold = soldOut(products, await stockMap(env, t.id, o.id));
+  const lines = (Array.isArray(body.lines) ? body.lines : []).slice(0, 40).map(l => {
+    const p = products.get(String(l.pid)); if (!p || p.ingredient) return null;
+    const qty = Math.floor(+l.qty || 0); if (qty < 1 || qty > 50) return null;
+    // Only options the product really has; anything else falls back to the first choice.
+    const mods = p.mods ? Object.fromEntries(p.mods.map(m => [m.name, l.mods && m.opts.includes(l.mods[m.name]) ? l.mods[m.name] : m.opts[0]])) : null;
+    return { pid: p.id, name: p.name, qty, unit: "", mods, note: str(l.note, 120) || undefined, price: p.price, out: sold(p) };
+  }).filter(Boolean);
+  if (!lines.length) fail(400, "Pilih menu dulu");
+  const out = lines.filter(l => l.out);
+  if (out.length) fail(409, out.map(l => l.name).join(", ") + " sedang habis. Hapus dari pesanan lalu kirim lagi.");
+  lines.forEach(l => delete l.out);
+  const pr = priceOrder({ lines }, { products, tax: t.tax, service: s.service, promos: [], loyalty: {}, now });
+  const order = {
+    id: newId("o"), no: String(1000 + (crypto.getRandomValues(new Uint16Array(1))[0] % 9000)), time: now, outletId: o.id, status: "baru",
+    table: table || undefined, orderType: fnb ? (table ? "Makan di sini" : body.orderType === "Makan di sini" ? "Makan di sini" : "Bawa pulang") : undefined,
+    name, phone: phone || undefined, note: str(body.note, 200) || undefined, lines, estimate: { subtotal: pr.subtotal, service: pr.service, tax: pr.tax, total: pr.total }
+  };
+  await env.DB.prepare("INSERT INTO orders (tenant_id, id, outlet_id, time, status, data) VALUES (?, ?, ?, ?, 'baru', ?)").bind(t.id, order.id, o.id, now, JSON.stringify(order)).run();
+  return json({ order: publicOrder(order) });
+});
+
+on("GET", "public/order/:token/:id", async ({ env, params }) => {
+  const { t } = await publicTenant(env, params.token);
+  const r = await env.DB.prepare("SELECT status, data FROM orders WHERE tenant_id = ? AND id = ?").bind(t.id, params.id).first();
+  if (!r) fail(404, "Pesanan tidak ditemukan");
+  return json({ order: publicOrder({ ...parse(r.data), status: r.status }) });
+});
+
+const pendingOrders = async (env, tid, outlet) => (await env.DB.prepare("SELECT data FROM orders WHERE tenant_id = ? AND outlet_id = ? AND status = 'baru' AND time > ? ORDER BY time")
+  .bind(tid, outlet, Date.now() - DAY).all()).results.map(r => parse(r.data));
+
+on("GET", "orders", async ({ env, sess, url }) => {
+  const t = requireTenant(sess);
+  return json({ orders: await pendingOrders(env, t.id, await resolveOutlet(env, sess, url.searchParams.get("outlet"))) });
+});
+
+// Accept: the order joins the table's open bill (or opens one) and goes to the kitchen; customer pays at the cashier.
+on("POST", "orders/:id/accept", async ({ env, sess, params }) => {
+  const t = requireTenant(sess);
+  const r = await env.DB.prepare("SELECT data FROM orders WHERE tenant_id = ? AND id = ? AND status = 'baru'").bind(t.id, params.id).first();
+  if (!r) fail(404, "Pesanan ini sudah diproses kasir lain");
+  const o = parse(r.data);
+  const open = o.table ? (await env.DB.prepare("SELECT data FROM bills WHERE tenant_id = ? AND outlet_id = ? AND status = 'open'").bind(t.id, o.outletId).all()).results.map(x => parse(x.data)).find(b => b.table === o.table) : null;
+  const cust = o.phone ? await env.DB.prepare("SELECT id FROM customers WHERE tenant_id = ? AND phone = ?").bind(t.id, o.phone).first() : null;
+  const { bill, stmts } = await billStmts(env, t, o.name + " (online)", o.outletId, open ? { id: open.id, lines: o.lines }
+    : { lines: o.lines, table: o.table, orderType: o.orderType, label: o.table ? undefined : "Online · " + o.name, customerId: cust ? cust.id : undefined, source: "online" });
+  Object.assign(o, { status: "diterima", billId: bill.id, by: sess.user.name, decided: Date.now() });
+  stmts.push(env.DB.prepare("UPDATE orders SET status = 'diterima', data = ? WHERE tenant_id = ? AND id = ? AND status = 'baru'").bind(JSON.stringify(o), t.id, o.id));
+  await env.DB.batch(stmts);
+  return json({ order: o, bill });
+});
+
+on("POST", "orders/:id/reject", async ({ env, sess, body, params }) => {
+  const t = requireTenant(sess);
+  const r = await env.DB.prepare("SELECT data FROM orders WHERE tenant_id = ? AND id = ? AND status = 'baru'").bind(t.id, params.id).first();
+  if (!r) fail(404, "Pesanan ini sudah diproses kasir lain");
+  const o = { ...parse(r.data), status: "ditolak", reason: str(body.reason, 120) || "Pesanan tidak bisa diproses", by: sess.user.name, decided: Date.now() };
+  await env.DB.prepare("UPDATE orders SET status = 'ditolak', data = ? WHERE tenant_id = ? AND id = ?").bind(JSON.stringify(o), t.id, o.id).run();
+  return json({ order: o });
+});
+
+/* ---------- referrals: invite another business, get a free month ---------- */
+const REF_BONUS_DAYS = 30, REF_TRIAL_DAYS = 7;
+async function refCode(env, t) {
+  const r = await env.DB.prepare("SELECT code FROM ref_codes WHERE tenant_id = ?").bind(t.id).first();
+  if (r) return r.code;
+  const stem = (t.name.toUpperCase().replace(/[^A-Z0-9]/g, "") || "ZIDNY").slice(0, 5);
+  const ABC = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (let i = 0; i < 5; i++) {
+    const code = stem + [...crypto.getRandomValues(new Uint8Array(3))].map(b => ABC[b % ABC.length]).join("");
+    const res = await env.DB.prepare("INSERT OR IGNORE INTO ref_codes (code, tenant_id) VALUES (?, ?)").bind(code, t.id).run();
+    if (res.meta && res.meta.changes) return code;
+    const mine = await env.DB.prepare("SELECT code FROM ref_codes WHERE tenant_id = ?").bind(t.id).first();
+    if (mine) return mine.code;
+  }
+  fail(500, "Gagal membuat kode referral");
+}
+const normRef = c => String(c || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16);
+
+// The referrer gets a free month once, when the business they invited pays for the first time.
+async function rewardReferrer(env, tid) {
+  const res = await env.DB.prepare("UPDATE ref_links SET rewarded = ? WHERE tenant_id = ? AND rewarded IS NULL").bind(Date.now(), tid).run();
+  if (!res.meta || !res.meta.changes) return;
+  const l = await env.DB.prepare("SELECT ref_tenant_id FROM ref_links WHERE tenant_id = ?").bind(tid).first();
+  const ref = l ? await env.DB.prepare("SELECT * FROM tenants WHERE id = ?").bind(l.ref_tenant_id).first() : null;
+  if (!ref) return;
+  const from = Math.max(Date.now(), ref.paid_until, ref.trial_ends);
+  await env.DB.prepare("UPDATE tenants SET paid_until = ? WHERE id = ?").bind(from + REF_BONUS_DAYS * DAY, ref.id).run();
+}
+
+on("GET", "referral", async ({ env, sess, request }) => {
+  const t = requireTenant(sess, { roles: ["owner"], allowInactive: true });
+  const code = await refCode(env, t);
+  const rows = (await env.DB.prepare("SELECT l.created, l.rewarded, t.name, t.trial_ends, t.paid_until, t.status FROM ref_links l JOIN tenants t ON t.id = l.tenant_id WHERE l.ref_tenant_id = ? ORDER BY l.created DESC LIMIT 200").bind(t.id).all()).results;
+  return json({
+    code, link: new URL(request.url).origin + "/app/?ref=" + code + "#daftar", bonusDays: REF_BONUS_DAYS, trialDays: REF_TRIAL_DAYS,
+    invites: rows.map(r => ({ name: r.name, joined: r.created, rewarded: r.rewarded || null, access: access(r) }))
+  });
+});
+
+on("GET", "referral/check/:code", async ({ env, params }) => {
+  const r = await env.DB.prepare("SELECT t.name FROM ref_codes c JOIN tenants t ON t.id = c.tenant_id WHERE c.code = ?").bind(normRef(params.code)).first();
+  if (!r) fail(404, "Kode referral tidak ditemukan");
+  return json({ name: r.name, trialDays: REF_TRIAL_DAYS });
 });
 
 /* ---------- staff, outlets, settings ---------- */
@@ -1022,6 +1275,12 @@ on("PUT", "settings", async ({ env, sess, body }) => {
   if (b.biz !== undefined && PROFILES[b.biz]) s.biz = b.biz;
   if (b.features && typeof b.features === "object") s.features = Object.fromEntries(Object.keys(FEATURES).map(k => [k, b.features[k] !== undefined ? !!b.features[k] : featuresOf(s, t.type)[k]]));
   if (Array.isArray(b.categories)) s.categories = [...new Set(b.categories.map(c => str(c, 40)).filter(Boolean))].slice(0, 100);
+  if (b.books && TAX_MODES[b.books.taxMode]) s.books = { ...s.books, taxMode: b.books.taxMode };
+  if (b.order) {
+    if (b.order.enabled !== undefined) s.order.enabled = !!b.order.enabled;
+    if (b.order.takeaway !== undefined) s.order.takeaway = !!b.order.takeaway;
+    if (s.order.enabled && !s.order.token) s.order.token = await newOrderToken(env, t.id);
+  }
   if (b.midtrans) {
     if (b.midtrans.serverKey !== undefined) s.midtrans.serverKey = str(b.midtrans.serverKey, 200);
     if (b.midtrans.clientKey !== undefined) s.midtrans.clientKey = str(b.midtrans.clientKey, 200);
@@ -1039,7 +1298,7 @@ on("PUT", "settings", async ({ env, sess, body }) => {
 on("POST", "settings/reset", async ({ env, sess, body }) => {
   const t = requireTenant(sess, { roles: ["owner"], allowInactive: true });
   if (!safeEqual(await hashPassword(String(body.password || ""), sess.real.pass_salt), sess.real.pass_hash)) fail(403, "Kata sandi salah");
-  await env.DB.batch(["transactions", "products", "stock", "moves", "stock_docs", "shifts", "bills", "kitchen", "customers", "promos", "suppliers"]
+  await env.DB.batch(["transactions", "products", "stock", "moves", "stock_docs", "shifts", "bills", "kitchen", "customers", "promos", "suppliers", "expenses", "orders"]
     .map(tb => env.DB.prepare(`DELETE FROM ${tb} WHERE tenant_id = ?`).bind(t.id)));
   return json({ ok: true });
 });
@@ -1068,6 +1327,7 @@ async function applySubscription(env, p) {
     env.DB.prepare("UPDATE tenants SET plan = ?, paid_until = ?, pay_request = NULL, status = 'aktif' WHERE id = ?").bind(plan, from + PLANS[plan].days * DAY, t.id),
     env.DB.prepare("UPDATE payments SET status = 'settlement', data = ? WHERE id = ?").bind(JSON.stringify(d), p.id)
   ]);
+  await rewardReferrer(env, t.id);
 }
 
 async function refreshPayment(env, p) {
@@ -1155,11 +1415,13 @@ on("GET", "admin/tenants", async ({ env, sess }) => {
   const ts = (await env.DB.prepare("SELECT * FROM tenants ORDER BY created DESC").all()).results;
   const users = (await env.DB.prepare("SELECT id, name, email, role, tenant_id FROM users WHERE tenant_id IS NOT NULL").all()).results;
   const trx = (await env.DB.prepare("SELECT tenant_id, time, total FROM transactions WHERE time > ?").bind(Date.now() - 7 * DAY).all()).results;
+  const refs = (await env.DB.prepare("SELECT tenant_id, ref_tenant_id, rewarded FROM ref_links").all()).results;
+  const nameOf = id => (ts.find(x => x.id === id) || {}).name || "";
   return json({
     tenants: ts.map(t => {
       const own = users.filter(u => u.tenant_id === t.id);
-      const o = own.find(u => u.role === "owner");
-      return { ...tenantOut(t), users: own.length, owner: o ? { id: o.id, name: o.name, email: o.email } : null };
+      const o = own.find(u => u.role === "owner"), rf = refs.find(r => r.tenant_id === t.id);
+      return { ...tenantOut(t), users: own.length, owner: o ? { id: o.id, name: o.name, email: o.email } : null, refBy: rf ? { name: nameOf(rf.ref_tenant_id), rewarded: !!rf.rewarded } : null };
     }),
     transactions: trx.map(x => ({ tenantId: x.tenant_id, time: x.time, total: x.total }))
   });
@@ -1177,6 +1439,7 @@ on("POST", "admin/tenants/:id", async ({ env, sess, body, params }) => {
     const periods = Math.min(Math.max(Math.floor(+body.periods || 1), 1), 36);
     const from = Math.max(Date.now(), t.paid_until);
     await env.DB.prepare("UPDATE tenants SET plan = ?, paid_until = ?, pay_request = NULL, status = 'aktif' WHERE id = ?").bind(plan, from + periods * PLANS[plan].days * DAY, t.id).run();
+    await rewardReferrer(env, t.id);
   } else if (body.action === "trial") {
     // Extend the free trial by N days, counted from now if it already ended.
     const days = Math.min(Math.max(Math.floor(+body.days || 7), 1), 365);
@@ -1243,7 +1506,7 @@ async function handle({ request, env, params }) {
       if (!(request.headers.get("content-type") || "").includes("application/json")) fail(415, "Harus JSON");
       body = await request.json().catch(() => ({}));
     }
-    const sess = path === "midtrans/notify" ? null : await loadSession(request, env);
+    const sess = path === "midtrans/notify" || path.startsWith("public/") ? null : await loadSession(request, env);
     return await route.r.fn({ request, env, body, sess, params: route.m.groups || {}, url: new URL(request.url) });
   } catch (e) {
     if (e instanceof HttpError) return json({ error: e.message }, e.status);

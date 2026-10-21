@@ -5,6 +5,7 @@ import { S, views, actions, forms, inputs, changes, api, toast, render, openModa
 import { openCamera } from "./pos.js";
 import { unitCost } from "./pricing.js";
 import { PROFILES, FEATURES, featuresOf, profileOf } from "./biz.js";
+import { orderSettingsPanel } from "./online.js";
 
 const arr = v => v === undefined ? [] : [].concat(v);
 const dateTs = (s, end) => s ? new Date(s + (end ? "T23:59:59" : "T00:00:00")).getTime() : undefined;
@@ -400,7 +401,7 @@ forms.outlet = async (d, f) => { const id = f.dataset.id || uid("o"); const r = 
 views.settings = (u, t) => {
   const s = S.settings, loy = s.loyalty || {}, mt = s.midtrans || {};
   const tablesText = (s.tables || []).map(x => x.name + (x.area && x.area !== "Dalam" ? ", " + x.area : "")).join("\n");
-  return `<div><h1>Pengaturan</h1><p class="muted">Data usaha, jenis usaha &amp; fitur, kategori, struk, pajak, meja, poin member, dan pembayaran QRIS.</p></div>
+  return `<div><h1>Pengaturan</h1><p class="muted">Data usaha, jenis usaha &amp; fitur, kategori, struk, pajak, meja, pesan online, poin member, dan pembayaran QRIS.</p></div>
   <form class="panel stack" data-form="setbiz"><h2>Usaha & struk</h2>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:2"><label for="sbn">Nama usaha</label><input class="input" id="sbn" name="name" required value="${esc(t.name)}"></div><div class="field" style="flex:1"><span class="label">Jenis usaha</span><b>${esc(PROFILES[profileOf(s, t.type)].name)}</b></div></div>
     <div class="field"><label for="sba">Alamat di struk</label><input class="input" id="sba" name="address" value="${esc(s.address || "")}" placeholder="${esc(t.city)}"></div>
@@ -418,6 +419,7 @@ views.settings = (u, t) => {
     <textarea class="input" name="categories" rows="6">${esc((s.categories || []).join("\n"))}</textarea><div><button class="btn primary" type="submit">Simpan kategori (${(s.categories || []).length})</button></div></form>
   ${feat("tables") ? `<form class="panel stack" data-form="settables"><h2>Meja</h2><p class="muted" style="font-size:.9rem">Satu baris per meja, format "nama, area". Contoh: "5, Teras". Isi "1-10, Dalam" untuk membuat meja 1 sampai 10 sekaligus.</p>
     <textarea class="input num" name="tables" rows="6">${esc(tablesText)}</textarea><div><button class="btn primary" type="submit">Simpan meja (${(s.tables || []).length})</button></div></form>` : ""}
+  ${orderSettingsPanel(t)}
   <form class="panel stack" data-form="setloy"><h2>Poin member</h2>
     <label class="row" style="gap:.35rem"><input type="checkbox" name="enabled" value="1" ${loy.enabled ? "checked" : ""}> Aktifkan poin member</label>
     <div class="row" style="flex-wrap:nowrap"><div class="field" style="flex:1"><label for="sle">Dapat 1 poin setiap belanja (Rp)</label><input class="input num" id="sle" name="earnPer" type="number" min="1000" value="${loy.earnPer || 10000}"></div><div class="field" style="flex:1"><label for="slv">Nilai 1 poin saat ditukar (Rp)</label><input class="input num" id="slv" name="pointValue" type="number" min="1" value="${loy.pointValue || 100}"></div></div>

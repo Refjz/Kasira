@@ -2,10 +2,11 @@
 
 Aplikasi kasir (POS) multi-tenant dengan tiga tingkat akun: Pemilik Aplikasi, Pemilik Usaha, dan staf (Manajer/Kasir). Mendukung mode Minimarket dan F&B, dan tetap bisa berjualan saat internet putus.
 
-Fitur utama: shift kasir dengan selisih kas, refund/batal dengan PIN manajer, struk Bluetooth/RawBT/WhatsApp, mode offline, total dihitung ulang di server, laporan lengkap dengan ekspor Excel, lupa/ganti kata sandi, barang masuk dari supplier, stok opname, riwayat stok, scan barcode kamera HP, satuan bertingkat (pcs/pak/dus), open bill, split bill, denah meja, resep bahan baku, QRIS otomatis (Midtrans), member dan poin, promo dan voucher, multi-outlet dengan transfer stok.
+Fitur utama: shift kasir dengan selisih kas, refund/batal dengan PIN manajer, struk Bluetooth/RawBT/WhatsApp, mode offline, total dihitung ulang di server, laporan lengkap dengan ekspor Excel, lupa/ganti kata sandi, barang masuk dari supplier, stok opname, riwayat stok, scan barcode kamera HP, satuan bertingkat (pcs/pak/dus), open bill, split bill, denah meja, resep bahan baku, QRIS otomatis (Midtrans), member dan poin, promo dan voucher, multi-outlet dengan transfer stok, pembukuan (pengeluaran, laba bersih, perkiraan PPh final UMKM 0,5%), pesan online lewat QR meja dan link menu, dan program ajak teman (referral).
 
 - `public/index.html`: landing page. Tombol "Coba gratis" mengarah ke pendaftaran (`/app/#daftar`).
 - `public/app/`: aplikasi kasir (ES modules, tanpa build). `core.js` state/API/offline, `pricing.js` perhitungan harga yang dipakai bersama oleh browser dan server, `pos.js` kasir/meja/dapur, `manage.js` produk/stok/member/promo/staf/outlet/pengaturan, `reports.js` laporan/transaksi/shift, `app.js` menu/login/akun/langganan/konsol. `sw.js` menyimpan aplikasi untuk dipakai offline. `vendor/` berisi SheetJS (Excel), ZXing (barcode), dan qrcode-generator.
+- `public/pesan/`: halaman menu untuk pelanggan (`/pesan/?t=<token>&m=<meja>`) tanpa login, dan `kartu` untuk mencetak QR per meja. Pesanan masuk ke menu Pesanan online di kasir.
 - `functions/api/[[path]].js`: API (Cloudflare Pages Functions): daftar, masuk, sesi, produk, transaksi, staf, langganan, konsol pemilik aplikasi.
 - `schema.sql`: tabel database Cloudflare D1 (`kasira-db`).
 - `android/`, `capacitor.config.json`: aplikasi Android (Capacitor) yang memuat `https://kasira-c70.pages.dev/app/`.
