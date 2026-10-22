@@ -4,9 +4,9 @@ import { barChart } from "./manage.js";
 import { receiptModal } from "./pos.js";
 
 const DAYMS = 86400000;
-const startOf = s => new Date(s + "T00:00:00").getTime(), endOf = s => new Date(s + "T23:59:59.999").getTime();
+export const startOf = s => new Date(s + "T00:00:00").getTime(), endOf = s => new Date(s + "T23:59:59.999").getTime();
 const PRESETS = [["today", "Hari ini"], ["yday", "Kemarin"], ["7", "7 hari"], ["30", "30 hari"], ["month", "Bulan ini"], ["lmonth", "Bulan lalu"]];
-function preset(k) {
+export function preset(k) {
   const now = new Date(), today = isoDay(now);
   if (k === "today") return [today, today];
   if (k === "yday") { const y = isoDay(Date.now() - DAYMS); return [y, y]; }
@@ -14,10 +14,10 @@ function preset(k) {
   if (k === "month") return [isoDay(new Date(now.getFullYear(), now.getMonth(), 1)), today];
   if (k === "lmonth") return [isoDay(new Date(now.getFullYear(), now.getMonth() - 1, 1)), isoDay(new Date(now.getFullYear(), now.getMonth(), 0))];
 }
-const rangeBar = (st, form, extra = "") => `<form class="row" data-form="${form}">${PRESETS.map(([k, l]) => `<button class="btn sm" type="submit" name="preset" value="${k}" ${st.preset === k ? 'aria-pressed="true" style="border-color:var(--accent);color:var(--accent)"' : ""}>${l}</button>`).join("")}
+export const rangeBar = (st, form, extra = "") => `<form class="row" data-form="${form}">${PRESETS.map(([k, l]) => `<button class="btn sm" type="submit" name="preset" value="${k}" ${st.preset === k ? 'aria-pressed="true" style="border-color:var(--accent);color:var(--accent)"' : ""}>${l}</button>`).join("")}
   <input class="input" type="date" name="from" value="${st.from}" aria-label="Dari tanggal" style="width:auto"><span class="muted">s/d</span><input class="input" type="date" name="to" value="${st.to}" aria-label="Sampai tanggal" style="width:auto">${extra}<button class="btn sm primary" type="submit" name="preset" value="">Tampilkan</button></form>`;
-const outletSel = (v, name = "outlet") => S.outlets.length > 1 ? `<select class="input" name="${name}" aria-label="Outlet" style="width:auto"><option value="all" ${v === "all" ? "selected" : ""}>Semua outlet</option>${S.outlets.map(o => `<option value="${o.id}" ${v === o.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select>` : "";
-function applyRange(st, d) { if (d.preset) { [st.from, st.to] = preset(d.preset); st.preset = d.preset; } else { st.from = d.from || st.from; st.to = d.to || st.to; st.preset = ""; } if (d.outlet) st.outlet = d.outlet; }
+export const outletSel = (v, name = "outlet") => S.outlets.length > 1 ? `<select class="input" name="${name}" aria-label="Outlet" style="width:auto"><option value="all" ${v === "all" ? "selected" : ""}>Semua outlet</option>${S.outlets.map(o => `<option value="${o.id}" ${v === o.id ? "selected" : ""}>${esc(o.name)}</option>`).join("")}</select>` : "";
+export function applyRange(st, d) { if (d.preset) { [st.from, st.to] = preset(d.preset); st.preset = d.preset; } else { st.from = d.from || st.from; st.to = d.to || st.to; st.preset = ""; } if (d.outlet) st.outlet = d.outlet; }
 
 /* ---------- reports ---------- */
 const RS = () => S.ui.rep || (S.ui.rep = { preset: "7", from: preset("7")[0], to: preset("7")[1], outlet: "all", data: null, tab: "ringkas" });
@@ -41,7 +41,8 @@ views.reports = () => {
         <tr><td>Penjualan kotor (sebelum diskon)</td><td class="r num">${rp(R.gross)}</td></tr><tr><td>Diskon, promo, voucher, poin</td><td class="r num down">−${rp(R.discount)}</td></tr>
         <tr><td>Service</td><td class="r num">${rp(R.service)}</td></tr><tr><td>Pajak</td><td class="r num">${rp(R.tax)}</td></tr><tr><td>Refund & pembatalan</td><td class="r num down">−${rp(R.refunds)}</td></tr>
         <tr><td><b>Penjualan bersih</b></td><td class="r num"><b>${rp(R.net)}</b></td></tr><tr><td>Harga pokok penjualan</td><td class="r num down">−${rp(R.cost)}</td></tr><tr><td>Pajak & service (disetor/dibagi)</td><td class="r num down">−${rp(R.tax + R.service)}</td></tr>
-        <tr><td><b>Laba kotor</b></td><td class="r num"><b>${rp(R.profit)}</b></td></tr></tbody></table></div>`;
+        <tr><td><b>Laba kotor</b></td><td class="r num"><b>${rp(R.profit)}</b></td></tr><tr><td>Pengeluaran operasional <button class="linkish" data-a="nav" data-v="books">lihat</button></td><td class="r num down">−${rp(R.expenses || 0)}</td></tr>
+        <tr><td><b>Laba bersih</b></td><td class="r num"><b class="${(R.netProfit ?? R.profit) < 0 ? "down" : ""}">${rp(R.netProfit ?? R.profit)}</b></td></tr></tbody></table></div>`;
   } else if (st.tab === "produk") body = tbl(["Produk", "Kategori", "Terjual", "Penjualan", "HPP", "Laba"], Object.entries(R.byProduct).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => `<tr><td>${esc(k)}</td><td class="r muted">${esc(v.cat || "")}</td><td class="r num">${nf(v.qty)}</td><td class="r num">${rp(v.total)}</td><td class="r num">${rp(v.cost)}</td><td class="r num">${rp(v.total - v.cost)}</td></tr>`));
   else if (st.tab === "kategori") body = tbl(["Kategori", "Item", "Penjualan", "Porsi"], grp(R.byCategory));
   else if (st.tab === "kasir") body = tbl(["Kasir", "Transaksi", "Penjualan", "Porsi"], grp(R.byCashier));
@@ -67,7 +68,8 @@ actions.xlsx = async el => {
   if (!window.XLSX) await new Promise((ok, bad) => { const s = document.createElement("script"); s.src = "vendor/xlsx.mini.min.js"; s.onload = ok; s.onerror = () => bad(new Error("Gagal memuat pengekspor Excel")); document.head.appendChild(s); });
   const st = RS(), R = st.data.report, X = window.XLSX, wb = X.utils.book_new();
   const add = (name, rows) => X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(rows), name);
-  add("Ringkasan", [["Laporan " + S.tenant.name], ["Periode", st.from + " s/d " + st.to], ["Outlet", st.outlet === "all" ? "Semua" : outletName(st.outlet)], [], ["Transaksi", R.count], ["Penjualan kotor", R.gross], ["Diskon", R.discount], ["Service", R.service], ["Pajak", R.tax], ["Refund", R.refunds], ["Penjualan bersih", R.net], ["HPP", R.cost], ["Laba kotor", R.profit]]);
+  add("Ringkasan", [["Laporan " + S.tenant.name], ["Periode", st.from + " s/d " + st.to], ["Outlet", st.outlet === "all" ? "Semua" : outletName(st.outlet)], [], ["Transaksi", R.count], ["Penjualan kotor", R.gross], ["Diskon", R.discount], ["Service", R.service], ["Pajak", R.tax], ["Refund", R.refunds], ["Penjualan bersih", R.net], ["HPP", R.cost], ["Laba kotor", R.profit], ["Pengeluaran operasional", R.expenses || 0], ["Laba bersih", R.netProfit ?? R.profit]]);
+  add("Pengeluaran", [["Kategori", "Jumlah"], ...Object.entries(R.byExpense || {}).sort((a, b) => b[1] - a[1]).map(([k, v]) => [k, Math.round(v)])]);
   add("Per hari", [["Tanggal", "Transaksi", "Penjualan"], ...Object.entries(R.byDay).sort().map(([k, v]) => [k, v.count, Math.round(v.total)])]);
   add("Produk", [["Produk", "Kategori", "Terjual", "Penjualan", "HPP", "Laba"], ...Object.entries(R.byProduct).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => [k, v.cat || "", +v.qty.toFixed(2), Math.round(v.total), Math.round(v.cost), Math.round(v.total - v.cost)])]);
   const g = (name, o, lab = k => k) => add(name, [[name, "Jumlah", "Penjualan"], ...Object.entries(o).sort((a, b) => b[1].total - a[1].total).map(([k, v]) => [lab(k), +(+v.count).toFixed(2), Math.round(v.total)])]);

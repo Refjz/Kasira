@@ -1,23 +1,26 @@
 // App shell: menu per role, outlet switcher, offline banner, sign-in flows, account, billing and the app owner console.
 import { S, views, actions, forms, changes, api, toast, render, openModal, closeModal, setShell, boot, loadData, setOutlet, applyPlans, esc, rp, initials, fmtDate, daysTo,
-  isFnb, feat, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey, NATIVE } from "./core.js";
+  isFnb, feat, isMgr, me, usable, outletName, ROLE, PLANS, TRIAL_DAYS, lsGet, lsSet, dayKey, NATIVE, openExternal } from "./core.js";
 import { resetPos } from "./pos.js";
 import { PROFILES } from "./biz.js";
 const BIZ_ICON = { restoran: "🍽️", kafe: "☕", warung: "🍜", minimarket: "🛒", retail: "👕", jasa: "✂️" };
 import { barChart } from "./manage.js";
 import { outboxPanel } from "./reports.js";
 import { printerPrefs, savePrinterPrefs, pairBluetooth, hasWebBluetooth, printText } from "./print.js";
+import { orderOn } from "./online.js";
+import "./ledger.js";
 
 /* ---------- menu ---------- */
 function menuFor(u, t) {
   if (u.role === "superadmin" && !S.session.impersonating) return [["Konsol", [["platform", "Ringkasan Platform"], ["tenants", "Pelanggan"], ["plans", "Paket Langganan"]]], ["Akun", [["account", "Akun saya"]]]];
   const fnb = isFnb(t), mgr = isMgr(u), owner = u.role === "owner";
-  const sell = [mgr && ["dash", "Dasbor"], ["pos", "Kasir"], fnb && feat("tables") && ["tables", "Meja"], fnb && feat("kitchen") && ["kitchen", "Dapur"], !(fnb && feat("tables")) && ["bills", "Pesanan ditahan"], ["shift", "Shift"], ["trx", u.role === "cashier" ? "Transaksi saya" : "Transaksi"]].filter(Boolean);
-  const manage = mgr ? [["products", "Produk"], ["stock", "Stok"], ["customers", "Pelanggan"], ["promos", "Promo & voucher"], ["reports", "Laporan"]] : [["customers", "Pelanggan"]];
+  const sell = [mgr && ["dash", "Dasbor"], ["pos", "Kasir"], orderOn() && ["online", "Pesanan online"], fnb && feat("tables") && ["tables", "Meja"], fnb && feat("kitchen") && ["kitchen", "Dapur"], !(fnb && feat("tables")) && ["bills", "Pesanan ditahan"], ["shift", "Shift"], ["trx", u.role === "cashier" ? "Transaksi saya" : "Transaksi"]].filter(Boolean);
+  const manage = mgr ? [["products", "Produk"], ["stock", "Stok"], ["customers", "Pelanggan"], ["promos", "Promo & voucher"], ["reports", "Laporan"], ["books", "Pembukuan"]] : [["customers", "Pelanggan"]];
   const biz = owner ? [["staff", "Staf"], ["outlets", "Outlet"], ["settings", "Pengaturan"], ["billing", "Langganan"]] : [];
   return [["Jualan", sell], ["Kelola", manage], ...(biz.length ? [["Usaha", biz]] : []), ["Akun", [["account", "Akun saya"]]]];
 }
 const flat = m => m.flatMap(g => g[1]);
+const badge = k => k === "kitchen" ? S.data.kitchen.filter(x => x.status === "baru").length : k === "online" ? (S.data.orders || []).length : 0;
 try { S.ui.view = sessionStorage.getItem("kasira-view") || null; } catch (e) {}
 const persist = () => { try { sessionStorage.setItem("kasira-view", S.ui.view || ""); } catch (e) {} };
 
@@ -66,7 +69,7 @@ setShell(() => {
       ${t ? `<div class="tenant-chip"><div class="label">Usaha</div><div style="font-weight:700">${esc(t.name)}</div><div class="muted" style="font-size:.8rem">${esc(t.type)} · ${t.access === "trial" ? "Coba gratis" : t.access === "paid" ? "Paket " + PLANS[t.plan].name : "Tidak aktif"}</div>${S.outlets.length > 1 && !isMgr(u) ? `<div class="muted" style="font-size:.8rem">${esc(outletName(S.outlet))}</div>` : ""}</div>`
         : `<div class="tenant-chip"><div class="label">Konsol</div><div style="font-weight:700">Pemilik Aplikasi</div><div class="muted" style="font-size:.8rem">${S.admin.tenants.length} usaha terdaftar</div></div>`}
       ${switcher}
-      <nav class="nav" aria-label="Menu" data-keep-scroll="nav">${menu.map(([g, list]) => `<div class="nav-group"><span class="label">${g}</span>${list.map(([k, l]) => `<button data-a="nav" data-v="${k}" ${S.ui.view === k ? 'aria-current="page"' : ""}>${l}${k === "kitchen" && S.data.kitchen.filter(x => x.status === "baru").length ? ` <span class="pill gold">${S.data.kitchen.filter(x => x.status === "baru").length}</span>` : ""}</button>`).join("")}</div>`).join("")}</nav>
+      <nav class="nav" aria-label="Menu" data-keep-scroll="nav">${menu.map(([g, list]) => `<div class="nav-group"><span class="label">${g}</span>${list.map(([k, l]) => { const n = badge(k); return `<button data-a="nav" data-v="${k}" ${S.ui.view === k ? 'aria-current="page"' : ""}>${l}${n ? ` <span class="pill gold">${n}</span>` : ""}</button>`; }).join("")}</div>`).join("")}</nav>
       <div class="side-foot">
         ${S.offline ? `<span class="pill bad">offline</span>` : ""}
         ${S.session.impersonating ? `<button class="btn sm" data-a="unimpersonate">Kembali ke konsol</button>` : ""}
@@ -79,13 +82,16 @@ setShell(() => {
 });
 
 /* ---------- sign in, sign up, forgot and reset password ---------- */
-const auth = { mode: "login", token: "", sent: null };
+const auth = { mode: "login", token: "", sent: null, ref: "", refInfo: null };
+// Invite links look like /app/?ref=KODE#daftar.
+try { const r = new URLSearchParams(location.search).get("ref"); if (r) { auth.ref = r.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 16); sessionStorage.setItem("kasira-ref", auth.ref); } else auth.ref = sessionStorage.getItem("kasira-ref") || ""; } catch (e) {}
 function readHash() {
   const h = location.hash;
   if (h.startsWith("#reset=")) { auth.mode = "reset"; auth.token = h.slice(7); }
   else auth.mode = ({ "#daftar": "signup", "#setup": "setup", "#lupa": "forgot" })[h] || "login";
 }
 readHash();
+if (auth.ref) { if (auth.mode === "login" && !location.hash) auth.mode = "signup"; api("GET", "referral/check/" + encodeURIComponent(auth.ref)).then(r => { auth.refInfo = r; if (!S.session) render(); }).catch(() => {}); }
 const setHash = h => history.replaceState(null, "", location.pathname + h);
 actions.auth = el => { auth.mode = el.dataset.v; auth.sent = null; setHash({ signup: "#daftar", setup: "#setup", forgot: "#lupa" }[auth.mode] || ""); render(); const f = document.querySelector(".login-side input"); if (f) f.focus(); };
 function authView() {
@@ -110,6 +116,7 @@ function authView() {
           <span class="muted" style="font-size:.78rem">Menu, kategori, dan fitur disiapkan sesuai pilihanmu. Bisa diubah nanti di Pengaturan.</span></fieldset>
         <div class="field"><label for="se1">Email</label><input class="input" id="se1" name="email" type="email" autocomplete="username" required></div>
         <div class="field"><label for="sp1">Kata sandi</label><input class="input" id="sp1" name="password" type="password" autocomplete="new-password" minlength="8" required><span class="muted" style="font-size:.8rem">Minimal 8 karakter.</span></div>
+        <div class="field"><label for="sr1">Kode referral (opsional)</label><input class="input num" id="sr1" name="ref" value="${esc(auth.ref)}" autocomplete="off" style="text-transform:uppercase" placeholder="dari teman yang mengajak">${auth.refInfo ? `<span class="up" style="font-size:.8rem">Diajak ${esc(auth.refInfo.name)}: masa coba jadi ${TRIAL_DAYS + auth.refInfo.trialDays} hari.</span>` : `<span class="muted" style="font-size:.8rem">Pakai kode teman, dapat tambahan 7 hari masa coba.</span>`}</div>
         <button class="btn primary" type="submit">Mulai coba gratis</button></form>
       <p class="muted" style="font-size:.88rem">Sudah punya akun? <button class="linkish" data-a="auth" data-v="login">Masuk</button></p>`,
     forgot: auth.sent ? `<div><h2>Cek email kamu</h2><p class="muted" style="font-size:.92rem">${auth.sent.mail ? `Kalau <b>${esc(auth.sent.email)}</b> terdaftar, tautan untuk membuat kata sandi baru sudah dikirim. Tautan berlaku 2 jam. Cek juga folder spam.` : `Pengiriman email belum diaktifkan di Zidny. Hubungi pemilik usahamu (untuk staf) atau admin Zidny via WhatsApp (untuk pemilik usaha) agar dibuatkan tautan atur ulang kata sandi.`}</p></div>${back}`
@@ -135,7 +142,7 @@ function authView() {
   </div></div>`;
 }
 forms.login = async d => { await api("POST", "login", { email: d.email, password: d.password }); S.ui.view = null; await boot(); };
-forms.signup = async d => { await api("POST", "signup", d); setHash(""); S.ui.view = "dash"; await boot(); toast("Selamat datang! Masa coba " + TRIAL_DAYS + " hari dimulai."); };
+forms.signup = async d => { await api("POST", "signup", d); setHash(""); try { sessionStorage.removeItem("kasira-ref"); } catch (e) {} S.ui.view = "dash"; await boot(); toast("Selamat datang! Masa coba " + (S.tenant ? S.tenant.daysLeft : TRIAL_DAYS) + " hari dimulai."); };
 forms.setup = async d => { if (d.password !== d.password2) { toast("Kedua kata sandi tidak sama"); return; } await api("POST", "setup-owner", { name: d.name, email: d.email, password: d.password }); setHash(""); S.ui.view = null; await boot(); toast("Akun Pemilik Aplikasi aktif"); };
 forms.forgot = async d => { const r = await api("POST", "password/forgot", { email: d.email }); auth.sent = { email: d.email, mail: r.mail }; render(); };
 forms["reset-pass"] = async d => { if (d.password !== d.password2) { toast("Kedua kata sandi tidak sama"); return; } await api("POST", "password/reset", { token: auth.token, password: d.password }); auth.mode = "login"; setHash(""); S.ui.view = null; await boot(); toast("Kata sandi baru tersimpan"); };
@@ -183,8 +190,24 @@ views.billing = (u, t) => {
   ${pr ? `<div class="panel stack" style="border-color:var(--gold)"><div class="spread"><h2>Menunggu pembayaran</h2><span class="pill gold">diproses</span></div><p>Paket <b>${PLANS[pr.plan].name}</b>, 1 ${PLANS[pr.plan].per}, <b class="num">${rp(pr.amount)}</b>. Diajukan ${fmtDate(pr.at)}.</p>
     ${pr.redirect ? `<p class="muted" style="font-size:.9rem">Bayar lewat QRIS, e-wallet, virtual account, atau kartu. Langganan aktif otomatis begitu pembayaran berhasil.</p><div class="row"><a class="btn primary" href="${esc(pr.redirect)}" target="_blank" rel="noopener">Lanjutkan pembayaran</a><button class="btn" data-a="paycheck">Saya sudah bayar, cek status</button></div>`
       : `<p class="muted" style="font-size:.9rem">Tim Zidny akan mengirim instruksi pembayaran ke <b>${esc(u.email)}</b>. Langganan aktif begitu pembayaran dikonfirmasi.</p>`}</div>` : ""}
+  ${refPanel()}
   <div class="plans">${Object.entries(PLANS).map(([k, p]) => { const cur = t.access === "paid" && t.plan === k; return `<div class="panel plan${cur ? " current" : ""}"><div class="spread"><h2>${p.name}</h2>${cur ? '<span class="pill ok">aktif</span>' : ""}</div><div><span class="num" style="font-size:1.4rem;font-weight:700">${rp(p.price)}</span><span class="muted"> /${p.per}</span>${p.note ? ` <span class="pill ok">${p.note}</span>` : ""}</div><ul>${p.feat.map(f => `<li>${f}</li>`).join("")}</ul><button class="btn ${k === "tahunan" ? "primary" : ""}" data-a="payplan" data-v="${k}">${cur ? "Perpanjang" : "Bayar paket " + p.name}</button></div>`; }).join("")}</div>`;
 };
+function refPanel() {
+  const r = S.ui.ref;
+  if (!r) return `<div class="panel"><p class="muted">Memuat program ajak teman…</p></div>`;
+  const status = i => i.rewarded ? `<span class="pill ok">bonus ${r.bonusDays} hari diterima</span>` : i.access === "paid" ? `<span class="pill ok">berlangganan</span>` : i.access === "trial" ? `<span class="pill gold">masa coba</span>` : `<span class="pill">belum bayar</span>`;
+  const got = r.invites.filter(i => i.rewarded).length;
+  return `<div class="panel stack" style="border-color:var(--accent)"><div class="spread"><h2>Ajak teman, gratis ${r.bonusDays} hari</h2>${got ? `<span class="pill ok">${got * r.bonusDays} hari gratis didapat</span>` : ""}</div>
+    <p class="muted" style="font-size:.92rem">Bagikan kode atau link di bawah ke sesama pemilik usaha. Mereka dapat tambahan ${r.trialDays} hari masa coba. Begitu mereka bayar langganan pertama, langgananmu otomatis bertambah ${r.bonusDays} hari. Tidak ada batas jumlah teman.</p>
+    <div class="row"><span class="label">Kode kamu</span><b class="num" style="font-size:1.25rem;letter-spacing:.06em">${esc(r.code)}</b></div><code>${esc(r.link)}</code>
+    <div class="row"><button class="btn primary" data-a="refwa">Bagikan ke WhatsApp</button><button class="btn" data-a="refcopy">Salin link</button></div>
+    ${r.invites.length ? `<div class="tbl-wrap"><table><thead><tr><th>Usaha yang kamu ajak</th><th>Daftar</th><th>Status</th></tr></thead><tbody>${r.invites.map(i => `<tr><td>${esc(i.name)}</td><td class="num">${fmtDate(i.joined)}</td><td>${status(i)}</td></tr>`).join("")}</tbody></table></div>` : `<p class="muted" style="font-size:.85rem">Belum ada yang daftar pakai kodemu.</p>`}</div>`;
+}
+views.billing.load = async () => { S.ui.ref = await api("GET", "referral"); render(); };
+const refText = () => "Aku pakai Zidny POS buat kasir usahaku. Daftar pakai kodeku " + S.ui.ref.code + " biar dapat tambahan " + S.ui.ref.trialDays + " hari gratis: " + S.ui.ref.link;
+actions.refwa = () => openExternal("https://wa.me/?text=" + encodeURIComponent(refText()));
+actions.refcopy = () => navigator.clipboard.writeText(S.ui.ref.link).then(() => toast("Link ajakan disalin"), () => toast("Salin manual dari kotak link"));
 actions.payplan = async el => {
   el.disabled = true;
   const w = NATIVE ? null : window.open("", "_blank");
@@ -224,7 +247,7 @@ views.platform = () => {
 };
 views.tenants = () => `<div class="spread"><div><h1>Pelanggan</h1><p class="muted">Usaha mendaftar sendiri dan mendapat masa coba ${TRIAL_DAYS} hari. Perpanjang masa coba, aktifkan langganan, atau buat tautan ganti kata sandi dari tombol "Atur akun".</p></div><button class="btn" data-a="reload">Muat ulang</button></div>
   <div class="panel tbl-wrap"><table><thead><tr><th>Usaha</th><th>Jenis</th><th>Status</th><th>Permintaan bayar</th><th class="r">Akun</th><th class="r">Transaksi 7 hari</th><th></th></tr></thead><tbody>
-  ${S.admin.tenants.map(t => { const tr = trxOf(t.id); return `<tr><td><b>${esc(t.name)}</b><div class="muted" style="font-size:.8rem">${t.owner ? esc(t.owner.name) + " · " + esc(t.owner.email) : ""}<br>${esc(t.city)} · daftar ${new Date(t.joined).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}</div></td><td>${esc(t.type)}</td><td>${accessPill(t)}${t.access === "paid" ? ` <span class="pill">${PLANS[t.plan].name}</span>` : ""}</td>
+  ${S.admin.tenants.map(t => { const tr = trxOf(t.id); return `<tr><td><b>${esc(t.name)}</b><div class="muted" style="font-size:.8rem">${t.owner ? esc(t.owner.name) + " · " + esc(t.owner.email) : ""}<br>${esc(t.city)} · daftar ${new Date(t.joined).toLocaleDateString("id-ID", { day: "numeric", month: "short", year: "numeric" })}${t.refBy ? `<br>diajak ${esc(t.refBy.name)}${t.refBy.rewarded ? " · bonus diberikan" : ""}` : ""}</div></td><td>${esc(t.type)}</td><td>${accessPill(t)}${t.access === "paid" ? ` <span class="pill">${PLANS[t.plan].name}</span>` : ""}</td>
   <td>${t.payRequest ? `<span class="pill gold">${PLANS[t.payRequest.plan].name} · ${rp(t.payRequest.amount)}</span>` : '<span class="muted">–</span>'}</td><td class="r num">${t.users}</td><td class="r num">${tr.length} · ${rp(tr.reduce((s, x) => s + x.total, 0))}</td>
   <td class="r" style="white-space:nowrap"><button class="btn sm primary" data-a="extend" data-id="${t.id}">Atur akun</button> <button class="btn sm" data-a="impersonate" data-id="${t.id}">Masuk sebagai pemilik</button> <button class="btn sm ${t.status === "aktif" ? "danger" : ""}" data-a="togglet" data-id="${t.id}">${t.status === "aktif" ? "Tangguhkan" : "Pulihkan"}</button></td></tr>`; }).join("") || `<tr><td colspan="7" class="empty">Belum ada usaha yang mendaftar.</td></tr>`}
   </tbody></table></div>`;

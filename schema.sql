@@ -189,3 +189,46 @@ CREATE TABLE IF NOT EXISTS platform (
   key TEXT PRIMARY KEY,
   data TEXT NOT NULL
 );
+
+-- v4: bookkeeping, self-order, referrals.
+-- Operating expenses (rent, salaries, electricity, ...) for net profit and the UMKM tax estimate.
+CREATE TABLE IF NOT EXISTS expenses (
+  tenant_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  time INTEGER NOT NULL,
+  outlet_id TEXT NOT NULL,
+  data TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, id)
+);
+CREATE INDEX IF NOT EXISTS expenses_time ON expenses(tenant_id, time);
+
+-- Orders customers place themselves from a table QR code or the shared menu link, until a cashier accepts or rejects them.
+CREATE TABLE IF NOT EXISTS orders (
+  tenant_id TEXT NOT NULL,
+  id TEXT NOT NULL,
+  outlet_id TEXT NOT NULL,
+  time INTEGER NOT NULL,
+  status TEXT NOT NULL,
+  data TEXT NOT NULL,
+  PRIMARY KEY (tenant_id, id)
+);
+CREATE INDEX IF NOT EXISTS orders_open ON orders(tenant_id, outlet_id, status, time);
+
+-- Public menu link token per business (self-order).
+CREATE TABLE IF NOT EXISTS order_links (
+  token TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL UNIQUE
+);
+
+-- Referral code per business, and which business invited which.
+CREATE TABLE IF NOT EXISTS ref_codes (
+  code TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL UNIQUE
+);
+CREATE TABLE IF NOT EXISTS ref_links (
+  tenant_id TEXT PRIMARY KEY,
+  ref_tenant_id TEXT NOT NULL,
+  created INTEGER NOT NULL,
+  rewarded INTEGER
+);
+CREATE INDEX IF NOT EXISTS ref_links_ref ON ref_links(ref_tenant_id);

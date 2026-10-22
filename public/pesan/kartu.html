@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>QR pesan meja · Zidny POS</title>
+<link rel="icon" type="image/png" href="../app/favicon-64.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=Figtree:wght@400;600;700&display=swap">
+<style>
+/* Printable QR cards, one per table plus one for the general menu link. Always light so it prints well. */
+:root{--ink:#14201B;--muted:#5B6A62;--line:#D6DED9;--accent:#0C7A62;color-scheme:light}
+*{box-sizing:border-box}
+body{margin:0;background:#F2F5F3;color:var(--ink);font-family:"Figtree",system-ui,sans-serif}
+h1,h2,b.t{font-family:"Bricolage Grotesque",system-ui,sans-serif}
+.bar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:16px;max-width:1000px;margin:0 auto}
+.bar h1{margin:0;font-size:1.4rem}
+.bar p{margin:.2rem 0 0;color:var(--muted);font-size:.9rem}
+button{font:inherit;font-weight:700;border:0;border-radius:10px;background:var(--accent);color:#fff;padding:.7rem 1.2rem;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:16px;padding:0 16px 32px;max-width:1000px;margin:0 auto}
+.card{background:#fff;border:1.5px dashed var(--line);border-radius:14px;padding:18px 14px;display:grid;justify-items:center;gap:6px;text-align:center;break-inside:avoid}
+.card .biz{font-weight:700;font-size:.95rem}
+.card b.t{font-size:1.9rem;line-height:1;color:var(--accent)}
+.card svg{width:190px;height:190px}
+.card .how{font-size:.8rem;color:var(--muted)}
+.err{max-width:520px;margin:3rem auto;text-align:center;padding:0 16px}
+@media print{body{background:#fff}.bar{display:none}.grid{padding:0;gap:10px;grid-template-columns:repeat(3,1fr)}.card{border-color:#999}}
+</style>
+</head>
+<body>
+<div id="root"><p class="err">Memuat…</p></div>
+<script src="../app/vendor/qrcode.js"></script>
+<script>
+(async function () {
+  var q = new URLSearchParams(location.search), t = (q.get("t") || "").toLowerCase(), o = q.get("o") || "";
+  var root = document.getElementById("root");
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"']/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]; }); };
+  var link = function (table) { return location.origin + "/pesan/?t=" + t + (o ? "&o=" + encodeURIComponent(o) : "") + (table ? "&m=" + encodeURIComponent(table) : ""); };
+  var svg = function (text) { var qr = qrcode(0, "M"); qr.addData(text); qr.make(); return qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); };
+  try {
+    var r = await fetch("/api/public/menu/" + t + (o ? "?o=" + encodeURIComponent(o) : ""));
+    var m = await r.json();
+    if (!r.ok) throw new Error(m.error || "Menu tidak ditemukan");
+    var cards = m.tables.map(function (name) { return { title: "Meja " + name, url: link(name), how: "Scan, pilih menu, kirim. Bayar di kasir." }; });
+    if (m.takeaway || !m.tables.length) cards.push({ title: m.fnb ? "Pesan & ambil" : "Pesan online", url: link(""), how: "Scan untuk lihat menu dan pesan dari HP." });
+    root.innerHTML = '<div class="bar"><div><h1>QR pesan ' + esc(m.name) + '</h1><p>' + cards.length + ' kartu' + (m.outlet && m.outlet.id !== "main" ? " · " + esc(m.outlet.name) : "") + '. Cetak, gunting, lalu tempel di tiap meja.</p></div><button onclick="print()">Cetak</button></div>' +
+      '<div class="grid">' + cards.map(function (c) { return '<div class="card"><span class="biz">' + esc(m.name) + '</span><b class="t">' + esc(c.title) + '</b>' + svg(c.url) + '<span class="how">' + esc(c.how) + '</span></div>'; }).join("") + '</div>';
+  } catch (e) {
+    root.innerHTML = '<div class="err"><h2>QR tidak bisa dibuat</h2><p>' + esc(e.message) + '</p><p>Pastikan Pesan online sudah aktif di Pengaturan.</p></div>';
+  }
+})();
+</script>
+</body>
+</html>
