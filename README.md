@@ -64,6 +64,15 @@ gradlew bundleRelease assembleRelease
 
 Setiap unggahan ke Play Console butuh `VERSION_CODE` yang lebih besar dari sebelumnya.
 
+### Build lewat GitHub Actions
+
+Workflow `.github/workflows/android-release.yml` membuat AAB + APK bertanda tangan tanpa perlu Android SDK di laptop. Isi dulu secrets repo (Settings › Secrets and variables › Actions):
+
+- `UPLOAD_KEYSTORE_BASE64`: isi file `.jks` dalam base64. Di PowerShell: `[Convert]::ToBase64String([IO.File]::ReadAllBytes("...\upload-keystore.jks")) | Set-Clipboard`
+- `UPLOAD_KEYSTORE_PASSWORD`, `UPLOAD_KEY_PASSWORD`, dan `UPLOAD_KEY_ALIAS` (kalau alias bukan `upload`)
+
+Lalu buka tab Actions › Build Android › Run workflow, isi versionCode. Hasilnya bisa diunduh di bagian Artifacts pada halaman run tersebut.
+
 
 ## Aplikasi Android
 
